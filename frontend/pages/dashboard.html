@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Sistema Paints</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'paint-blue': '#2563eb',
+                        'paint-orange': '#f97316'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-paint-brush text-paint-blue text-2xl"></i>
+                    <h1 class="text-xl font-bold text-gray-900">Sistema Paints</h1>
+                </div>
+                
+                <!-- User Menu -->
+                <div class="relative">
+                    <button id="profileDropdownBtn" class="flex items-center space-x-3 text-gray-700 hover:text-gray-900">
+                        <div class="text-right hidden sm:block">
+                            <div class="text-sm font-medium" data-user-name>Usuario</div>
+                            <div class="text-xs text-gray-500" data-user-profile>Perfil</div>
+                        </div>
+                        <div class="w-8 h-8 bg-paint-blue rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-white text-sm"></i>
+                        </div>
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </button>
+                    
+                    <!-- Dropdown Menu -->
+                    <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                        <a href="#" onclick="showChangePasswordModal()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-key mr-2"></i>Cambiar Contraseña
+                        </a>
+                        <div class="border-t border-gray-100"></div>
+                        <a href="#" onclick="logout()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Welcome Section -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">
+                ¡Bienvenido, <span data-user-name>Usuario</span>!
+            </h2>
+            <p class="text-gray-600">
+                Perfil: <span class="font-medium" data-user-profile>Perfil</span> | 
+                Sucursal: <span class="font-medium" data-user-sucursal>Sucursal</span>
+            </p>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alertMessage" class="hidden mb-6 p-4 rounded-lg"></div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Sucursales -->
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-store text-paint-blue text-xl"></i>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-2xl font-bold text-gray-900" id="sucursalesCount">-</div>
+                        <div class="text-sm text-gray-500">Sucursales</div>
+                    </div>
+                </div>
+                <h3 class="font-semibold text-gray-900 mb-2">Gestión de Sucursales</h3>
+                <p class="text-gray-600 text-sm mb-4">Administra las sucursales del sistema</p>
+                <a href="sucursales.html" 
+                   class="inline-flex items-center text-paint-blue hover:text-blue-700 font-medium">
+                    <i class="fas fa-arrow-right mr-1"></i>Ir a Sucursales
+                </a>
+            </div>
+
+            <!-- Categorías -->
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-tags text-green-600 text-xl"></i>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-2xl font-bold text-gray-900" id="categoriasCount">-</div>
+                        <div class="text-sm text-gray-500">Categorías</div>
+                    </div>
+                </div>
+                <h3 class="font-semibold text-gray-900 mb-2">Categorías de Productos</h3>
+                <p class="text-gray-600 text-sm mb-4">Organiza los productos por categorías</p>
+                <a href="categorias.html" 
+                   class="inline-flex items-center text-green-600 hover:text-green-700 font-medium">
+                    <i class="fas fa-arrow-right mr-1"></i>Ir a Categorías
+                </a>
+            </div>
+
+            <!-- Productos -->
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-boxes text-paint-orange text-xl"></i>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-2xl font-bold text-gray-900" id="productosCount">-</div>
+                        <div class="text-sm text-gray-500">Productos</div>
+                    </div>
+                </div>
+                <h3 class="font-semibold text-gray-900 mb-2">Gestión de Productos</h3>
+                <p class="text-gray-600 text-sm mb-4">Administra el catálogo de productos</p>
+                <a href="productos.html" 
+                   class="inline-flex items-center text-paint-orange hover:text-orange-700 font-medium">
+                    <i class="fas fa-arrow-right mr-1"></i>Ir a Productos
+                </a>
+            </div>
+        </div>
+
+        <!-- Additional Actions (based on user profile) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <!-- Ventas -->
+            <div data-show-profile="Gerente,Digitador,Cajero" class="hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <i class="fas fa-shopping-cart text-2xl"></i>
+                    <span class="text-sm font-medium">Ventas</span>
+                </div>
+                <div class="mt-2">
+                    <div class="text-xs opacity-90">Módulo de ventas</div>
+                </div>
+            </div>
+
+            <!-- Reportes -->
+            <div data-show-profile="Gerente" class="hidden bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <i class="fas fa-chart-bar text-2xl"></i>
+                    <span class="text-sm font-medium">Reportes</span>
+                </div>
+                <div class="mt-2">
+                    <div class="text-xs opacity-90">Análisis y reportes</div>
+                </div>
+            </div>
+
+            <!-- Inventario -->
+            <div data-show-profile="Gerente,Digitador" class="hidden bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <i class="fas fa-warehouse text-2xl"></i>
+                    <span class="text-sm font-medium">Inventario</span>
+                </div>
+                <div class="mt-2">
+                    <div class="text-xs opacity-90">Control de stock</div>
+                </div>
+            </div>
+
+            <!-- Configuración -->
+            <div data-show-profile="Gerente" class="hidden bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg p-4 text-white">
+                <div class="flex items-center justify-between">
+                    <i class="fas fa-cog text-2xl"></i>
+                    <span class="text-sm font-medium">Configuración</span>
+                </div>
+                <div class="mt-2">
+                    <div class="text-xs opacity-90">Ajustes del sistema</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity / Statistics -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Resumen del Sistema</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-paint-blue mb-2" id="totalSucursales">0</div>
+                    <div class="text-gray-600">Total Sucursales</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-600 mb-2" id="totalCategorias">0</div>
+                    <div class="text-gray-600">Total Categorías</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-paint-orange mb-2" id="totalProductos">0</div>
+                    <div class="text-gray-600">Total Productos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script>
+        class Dashboard {
+            constructor() {
+                this.loadDashboardData();
+            }
+
+            async loadDashboardData() {
+                try {
+                    // Cargar contadores de cada módulo
+                    await Promise.all([
+                        this.loadSucursalesCount(),
+                        this.loadCategoriasCount(),
+                        this.loadProductosCount()
+                    ]);
+                } catch (error) {
+                    console.error('Error cargando datos del dashboard:', error);
+                    utils.showAlert('Error al cargar datos del dashboard', 'error');
+                }
+            }
+
+            async loadSucursalesCount() {
+                try {
+                    const response = await sucursalesService.getAll({ limit: 1 });
+                    if (response.success) {
+                        const count = response.pagination?.totalItems || 0;
+                        document.getElementById('sucursalesCount').textContent = count;
+                        document.getElementById('totalSucursales').textContent = count;
+                    }
+                } catch (error) {
+                    console.error('Error cargando sucursales:', error);
+                }
+            }
+
+            async loadCategoriasCount() {
+                try {
+                    const response = await categoriasService.getAll({ limit: 1 });
+                    if (response.success) {
+                        const count = response.pagination?.totalItems || 0;
+                        document.getElementById('categoriasCount').textContent = count;
+                        document.getElementById('totalCategorias').textContent = count;
+                    }
+                } catch (error) {
+                    console.error('Error cargando categorías:', error);
+                }
+            }
+
+            async loadProductosCount() {
+                try {
+                    const response = await productosService.getAll({ limit: 1 });
+                    if (response.success) {
+                        const count = response.pagination?.totalItems || 0;
+                        document.getElementById('productosCount').textContent = count;
+                        document.getElementById('totalProductos').textContent = count;
+                    }
+                } catch (error) {
+                    console.error('Error cargando productos:', error);
+                }
+            }
+        }
+
+        // Inicializar dashboard cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.authManager && window.authManager.isLoggedIn()) {
+                new Dashboard();
+            }
+        });
+    </script>
+</body>
+</html>

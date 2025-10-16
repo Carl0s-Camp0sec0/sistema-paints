@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Paints - Inicio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'paint-blue': '#2563eb',
+                        'paint-orange': '#f97316',
+                        'paint-gray': '#6b7280'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-paint-brush text-paint-blue text-2xl"></i>
+                    <h1 class="text-2xl font-bold text-gray-900">Sistema Paints</h1>
+                </div>
+                <nav class="hidden md:flex space-x-6">
+                    <a href="index.html" class="text-paint-blue font-medium">Inicio</a>
+                    <a href="pages/login.html" class="text-gray-600 hover:text-paint-blue">Iniciar Sesión</a>
+                </nav>
+                <button id="mobileMenuBtn" class="md:hidden text-gray-600">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="hidden md:hidden bg-white border-t">
+        <div class="px-4 py-2 space-y-2">
+            <a href="index.html" class="block text-paint-blue font-medium py-2">Inicio</a>
+            <a href="pages/login.html" class="block text-gray-600 hover:text-paint-blue py-2">Iniciar Sesión</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <!-- Hero Section -->
+        <div class="text-center mb-16">
+            <h2 class="text-4xl font-bold text-gray-900 mb-4">
+                Bienvenido al Sistema de Gestión de Pinturas
+            </h2>
+            <p class="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+                Sistema integral para la gestión de inventarios, ventas y administración de la cadena de pinturas Paints.
+            </p>
+            <a href="pages/login.html" 
+               class="inline-flex items-center px-6 py-3 bg-paint-blue text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-sign-in-alt mr-2"></i>
+                Acceder al Sistema
+            </a>
+        </div>
+
+        <!-- Features -->
+        <div class="grid md:grid-cols-3 gap-8 mb-16">
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <div class="w-16 h-16 bg-paint-blue bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-users text-paint-blue text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Gestión de Usuarios</h3>
+                <p class="text-gray-600">Control de acceso con diferentes perfiles: Gerente, Digitador y Cajero.</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <div class="w-16 h-16 bg-paint-orange bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-boxes text-paint-orange text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Inventario</h3>
+                <p class="text-gray-600">Administración completa de productos, categorías y control de stock.</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <div class="w-16 h-16 bg-green-500 bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-store text-green-500 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">Sucursales</h3>
+                <p class="text-gray-600">Gestión de múltiples sucursales en Guatemala y control centralizado.</p>
+            </div>
+        </div>
+
+        <!-- Sucursales Info -->
+        <div class="bg-white rounded-lg shadow-md p-8">
+            <h3 class="text-2xl font-bold text-gray-900 mb-6 text-center">Nuestras Sucursales</h3>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="border rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900">Pradera Chimaltenango</h4>
+                    <p class="text-gray-600 text-sm mt-1">Centro Comercial Pradera</p>
+                    <p class="text-gray-600 text-sm">Chimaltenango</p>
+                </div>
+                <div class="border rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900">Pradera Escuintla</h4>
+                    <p class="text-gray-600 text-sm mt-1">Centro Comercial Pradera</p>
+                    <p class="text-gray-600 text-sm">Escuintla</p>
+                </div>
+                <div class="border rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900">Las Américas Mazatenango</h4>
+                    <p class="text-gray-600 text-sm mt-1">Centro Comercial Las Américas</p>
+                    <p class="text-gray-600 text-sm">Suchitepéquez</p>
+                </div>
+                <div class="border rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900">La Trinidad Coatepeque</h4>
+                    <p class="text-gray-600 text-sm mt-1">Centro Comercial La Trinidad</p>
+                    <p class="text-gray-600 text-sm">Quetzaltenango</p>
+                </div>
+                <div class="border rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900">Pradera Xela</h4>
+                    <p class="text-gray-600 text-sm mt-1">Centro Comercial Pradera</p>
+                    <p class="text-gray-600 text-sm">Quetzaltenango</p>
+                </div>
+                <div class="border rounded-lg p-4">
+                    <h4 class="font-semibold text-gray-900">Miraflores Guatemala</h4>
+                    <p class="text-gray-600 text-sm mt-1">Centro Comercial Miraflores</p>
+                    <p class="text-gray-600 text-sm">Ciudad de Guatemala</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2024 Sistema Paints. Todos los derechos reservados.</p>
+            <p class="text-gray-400 mt-2">Proyecto de Bases de Datos II - UMES</p>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        document.getElementById('mobileMenuBtn').addEventListener('click', function() {
+            const mobileMenu = document.getElementById('mobileMenu');
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Verificar si el usuario ya está logueado y redirigir
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar si hay token almacenado
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                // Si hay token, ofrecer ir al dashboard
+                const dashboardBtn = document.createElement('a');
+                dashboardBtn.href = 'pages/dashboard.html';
+                dashboardBtn.className = 'ml-4 inline-flex items-center px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors';
+                dashboardBtn.innerHTML = '<i class="fas fa-tachometer-alt mr-2"></i>Ir al Dashboard';
+                
+                const loginBtn = document.querySelector('a[href="pages/login.html"]');
+                if (loginBtn && loginBtn.parentNode) {
+                    loginBtn.parentNode.insertBefore(dashboardBtn, loginBtn.nextSibling);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
