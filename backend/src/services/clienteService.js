@@ -1,139 +1,243 @@
 // backend/src/services/clienteService.js
 
-const ClienteRepository = require('../repositories/clienteRepository');
+const { executeQuery, executeTransaction } = require('../config/database');
 
 class ClienteService {
 
-  // Obtener clientes con paginación y búsqueda
-  static async obtenerClientes(page = 1, limit = 10, search = '', sortBy = 'nombres', sortOrder = 'asc') {
+  // Obtener clientes con paginación y filtros
+  static async obtenerClientes({ offset = 0, limit = 10, search = '', tipo_cliente = '' }) {
     try {
-      const offset = (page - 1) * limit;
-      
-      const clientes = await ClienteRepository.findAll({
-        limit,
-        offset,
-        search,
-        sortBy,
-        sortOrder
-      });
+      let whereConditions = ['c.estado = 1']; // Solo clientes activos
+      let params = [];
 
-      const total = await ClienteRepository.count({ search });
-      
+      // Filtro de búsqueda por nombre, NIT o nombre comercial
+      if (search) {
+        whereConditions.push(`(
+          c.nombre_completo LIKE ? OR 
+          c.nit LIKE ? OR 
+          c.nombre_comercial LIKE ? OR
+          c.email LIKE ?
+        )`);
+        const searchTerm = `%${search}%`;
+        params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+      }
+
+      // Filtro por tipo de cliente
+      if (tipo_cliente) {
+        whereConditions.push('c.tipo_cliente = ?');
+        params.push(tipo_cliente);
+      }
+
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Consulta principal con paginación
+      const sql = `
+        SELECT 
+          c.id_cliente,
+          c.nit,
+          c.nombre_completo,
+          c.email,
+          c.telefono,
+          c.direccion,
+          c.tipo_cliente,
+          c.nombre_comercial,
+          c.contacto_principal,
+          c.estado,
+          c.fecha_registro,
+          c.fecha_actualizacion,
+          COUNT(f.id_factura) as total_facturas,
+          COALESCE(SUM(f.total_factura), 0) as total_compras
+        FROM clientes c
+        LEFT JOIN facturas f ON c.id_cliente = f.id_cliente AND f.estado = 'Activa'
+        ${whereClause}
+        GROUP BY c.id_cliente
+        ORDER BY c.nombre_completo ASC
+        LIMIT ? OFFSET ?
+      `;
+
+      // Consulta para el total de registros
+      const countSql = `
+        SELECT COUNT(DISTINCT c.id_cliente) as total
+        FROM clientes c
+        ${whereClause}
+      `;
+
+      const [clientes, totalResult] = await Promise.all([
+        executeQuery(sql, [...params, limit, offset]),
+        executeQuery(countSql, params)
+      ]);
+
+      const total = totalResult[0]?.total || 0;
+      const totalPages = Math.ceil(total / limit);
+      const currentPage = Math.floor(offset / limit) + 1;
+
       return {
         clientes,
         pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
-          totalItems: total,
-          itemsPerPage: limit
+          total,
+          totalPages,
+          currentPage,
+          limit,
+          hasNext: currentPage < totalPages,
+          hasPrev: currentPage > 1
         }
       };
+
     } catch (error) {
       console.error('Error en obtenerClientes:', error);
-      throw error;
+      throw new Error('Error al obtener clientes');
     }
   }
 
   // Obtener cliente por ID
-  static async obtenerClientePorId(id) {
+  static async obtenerClientePorId(id_cliente) {
     try {
-      if (!id || isNaN(id)) {
-        throw new Error('ID de cliente inválido');
-      }
+      const sql = `
+        SELECT 
+          c.*,
+          COUNT(f.id_factura) as total_facturas,
+          COALESCE(SUM(f.total_factura), 0) as total_compras,
+          MAX(f.fecha_factura) as ultima_compra
+        FROM clientes c
+        LEFT JOIN facturas f ON c.id_cliente = f.id_cliente AND f.estado = 'Activa'
+        WHERE c.id_cliente = ?
+        GROUP BY c.id_cliente
+      `;
 
-      const cliente = await ClienteRepository.findById(id);
-      
-      if (!cliente) {
-        throw new Error('Cliente no encontrado');
-      }
+      const resultado = await executeQuery(sql, [id_cliente]);
+      return resultado[0] || null;
 
-      return cliente;
     } catch (error) {
       console.error('Error en obtenerClientePorId:', error);
-      throw error;
+      throw new Error('Error al obtener cliente');
     }
   }
 
-  // Crear cliente
+  // Buscar clientes para autocomplete
+  static async buscarClientes(termino) {
+    try {
+      const sql = `
+        SELECT 
+          id_cliente,
+          nit,
+          nombre_completo,
+          nombre_comercial,
+          email,
+          telefono,
+          tipo_cliente
+        FROM clientes 
+        WHERE estado = 1 
+        AND (
+          nombre_completo LIKE ? OR 
+          nit LIKE ? OR 
+          nombre_comercial LIKE ? OR
+          email LIKE ?
+        )
+        ORDER BY nombre_completo ASC
+        LIMIT 10
+      `;
+
+      const searchTerm = `%${termino}%`;
+      const clientes = await executeQuery(sql, [searchTerm, searchTerm, searchTerm, searchTerm]);
+
+      return clientes;
+
+    } catch (error) {
+      console.error('Error en buscarClientes:', error);
+      throw new Error('Error al buscar clientes');
+    }
+  }
+
+  // Crear nuevo cliente
   static async crearCliente(clienteData) {
     try {
-      // Validaciones
-      if (!clienteData.nombres || clienteData.nombres.trim().length === 0) {
-        throw new Error('El nombre es obligatorio');
-      }
+      // Verificar si ya existe un cliente con ese NIT
+      const existeNit = await executeQuery(
+        'SELECT id_cliente FROM clientes WHERE nit = ? AND estado = 1',
+        [clienteData.nit]
+      );
 
-      if (!clienteData.apellidos || clienteData.apellidos.trim().length === 0) {
-        throw new Error('Los apellidos son obligatorios');
-      }
-
-      if (!clienteData.nit || clienteData.nit.trim().length === 0) {
-        throw new Error('El NIT es obligatorio');
-      }
-
-      // Validar que el NIT no exista
-      const existeNit = await ClienteRepository.existsByNit(clienteData.nit.trim());
-      if (existeNit) {
+      if (existeNit.length > 0) {
         throw new Error('Ya existe un cliente con este NIT');
       }
 
-      // Validar email si se proporciona
-      if (clienteData.email && !this.validarEmail(clienteData.email)) {
-        throw new Error('Formato de email inválido');
-      }
+      const sql = `
+        INSERT INTO clientes (
+          nit, nombre_completo, email, telefono, direccion,
+          tipo_cliente, nombre_comercial, contacto_principal,
+          estado, fecha_registro
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
+      `;
 
-      // Validar teléfono si se proporciona
-      if (clienteData.telefono && !this.validarTelefono(clienteData.telefono)) {
-        throw new Error('Formato de teléfono inválido');
-      }
+      const params = [
+        clienteData.nit,
+        clienteData.nombre_completo,
+        clienteData.email,
+        clienteData.telefono,
+        clienteData.direccion,
+        clienteData.tipo_cliente,
+        clienteData.nombre_comercial,
+        clienteData.contacto_principal
+      ];
 
-      const clienteId = await ClienteRepository.create(clienteData);
-      return await this.obtenerClientePorId(clienteId);
+      const resultado = await executeQuery(sql, params);
+      const id_cliente = resultado.insertId;
+
+      // Obtener el cliente recién creado
+      return await this.obtenerClientePorId(id_cliente);
+
     } catch (error) {
       console.error('Error en crearCliente:', error);
       throw error;
     }
   }
 
-  // Actualizar cliente
-  static async actualizarCliente(id, clienteData) {
+  // Actualizar cliente existente
+  static async actualizarCliente(id_cliente, clienteData) {
     try {
-      if (!id || isNaN(id)) {
-        throw new Error('ID de cliente inválido');
+      // Verificar si ya existe otro cliente con ese NIT
+      const existeNit = await executeQuery(
+        'SELECT id_cliente FROM clientes WHERE nit = ? AND id_cliente != ? AND estado = 1',
+        [clienteData.nit, id_cliente]
+      );
+
+      if (existeNit.length > 0) {
+        throw new Error('Ya existe otro cliente con este NIT');
       }
 
-      // Verificar que el cliente existe
-      await this.obtenerClientePorId(id);
+      const sql = `
+        UPDATE clientes SET
+          nit = ?,
+          nombre_completo = ?,
+          email = ?,
+          telefono = ?,
+          direccion = ?,
+          tipo_cliente = ?,
+          nombre_comercial = ?,
+          contacto_principal = ?,
+          estado = ?,
+          fecha_actualizacion = NOW()
+        WHERE id_cliente = ?
+      `;
 
-      // Validar datos si se proporcionan
-      if (Object.keys(clienteData).length === 0) {
-        throw new Error('No hay datos para actualizar');
-      }
+      const params = [
+        clienteData.nit,
+        clienteData.nombre_completo,
+        clienteData.email,
+        clienteData.telefono,
+        clienteData.direccion,
+        clienteData.tipo_cliente,
+        clienteData.nombre_comercial,
+        clienteData.contacto_principal,
+        clienteData.estado,
+        id_cliente
+      ];
 
-      // Validar NIT único si se está actualizando
-      if (clienteData.nit) {
-        const existeNit = await ClienteRepository.existsByNit(clienteData.nit.trim(), id);
-        if (existeNit) {
-          throw new Error('Ya existe un cliente con este NIT');
-        }
-      }
+      await executeQuery(sql, params);
 
-      // Validar email si se proporciona
-      if (clienteData.email && !this.validarEmail(clienteData.email)) {
-        throw new Error('Formato de email inválido');
-      }
+      // Obtener el cliente actualizado
+      return await this.obtenerClientePorId(id_cliente);
 
-      // Validar teléfono si se proporciona
-      if (clienteData.telefono && !this.validarTelefono(clienteData.telefono)) {
-        throw new Error('Formato de teléfono inválido');
-      }
-
-      const actualizado = await ClienteRepository.update(id, clienteData);
-      
-      if (!actualizado) {
-        throw new Error('No se pudo actualizar el cliente');
-      }
-
-      return await this.obtenerClientePorId(id);
     } catch (error) {
       console.error('Error en actualizarCliente:', error);
       throw error;
@@ -141,88 +245,112 @@ class ClienteService {
   }
 
   // Eliminar cliente (soft delete)
-  static async eliminarCliente(id) {
+  static async eliminarCliente(id_cliente) {
     try {
-      if (!id || isNaN(id)) {
-        throw new Error('ID de cliente inválido');
-      }
+      const sql = `
+        UPDATE clientes SET
+          estado = 0,
+          fecha_actualizacion = NOW()
+        WHERE id_cliente = ?
+      `;
 
-      // Verificar que el cliente existe
-      await this.obtenerClientePorId(id);
+      await executeQuery(sql, [id_cliente]);
 
-      // Verificar que no tenga facturas asociadas
-      const tieneFacturas = await ClienteRepository.hasFacturas(id);
-      if (tieneFacturas) {
-        throw new Error('No se puede eliminar el cliente porque tiene facturas asociadas');
-      }
-
-      const eliminado = await ClienteRepository.delete(id);
-      
-      if (!eliminado) {
-        throw new Error('No se pudo eliminar el cliente');
-      }
-
-      return true;
     } catch (error) {
       console.error('Error en eliminarCliente:', error);
-      throw error;
+      throw new Error('Error al eliminar cliente');
     }
   }
 
-  // Buscar por NIT
-  static async buscarPorNit(nit) {
+  // Verificar si el cliente tiene facturas asociadas
+  static async verificarFacturasAsociadas(id_cliente) {
     try {
-      if (!nit || nit.trim().length === 0) {
-        throw new Error('NIT es requerido');
+      const sql = `
+        SELECT COUNT(*) as total
+        FROM facturas 
+        WHERE id_cliente = ? AND estado = 'Activa'
+      `;
+
+      const resultado = await executeQuery(sql, [id_cliente]);
+      return resultado[0].total > 0;
+
+    } catch (error) {
+      console.error('Error en verificarFacturasAsociadas:', error);
+      throw new Error('Error al verificar facturas asociadas');
+    }
+  }
+
+  // Obtener historial de facturas del cliente
+  static async obtenerFacturasCliente({ id_cliente, offset = 0, limit = 10, fecha_inicio, fecha_fin }) {
+    try {
+      let whereConditions = ['f.id_cliente = ?', 'f.estado = ?'];
+      let params = [id_cliente, 'Activa'];
+
+      // Filtros de fecha
+      if (fecha_inicio) {
+        whereConditions.push('f.fecha_factura >= ?');
+        params.push(fecha_inicio);
+      }
+      if (fecha_fin) {
+        whereConditions.push('f.fecha_factura <= ?');
+        params.push(fecha_fin);
       }
 
-      return await ClienteRepository.findByNit(nit.trim());
+      const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+      // Consulta principal
+      const sql = `
+        SELECT 
+          f.id_factura,
+          f.numero_factura,
+          f.serie_factura,
+          f.fecha_factura,
+          f.subtotal,
+          f.impuestos,
+          f.total_factura,
+          f.observaciones,
+          CONCAT(u.nombres, ' ', u.apellidos) as empleado_nombre,
+          s.nombre_sucursal
+        FROM facturas f
+        LEFT JOIN usuarios u ON f.id_empleado = u.id_usuario
+        LEFT JOIN sucursales s ON u.id_sucursal = s.id_sucursal
+        ${whereClause}
+        ORDER BY f.fecha_factura DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      // Consulta para el total
+      const countSql = `
+        SELECT COUNT(*) as total
+        FROM facturas f
+        ${whereClause}
+      `;
+
+      const [facturas, totalResult] = await Promise.all([
+        executeQuery(sql, [...params, limit, offset]),
+        executeQuery(countSql, params)
+      ]);
+
+      const total = totalResult[0]?.total || 0;
+      const totalPages = Math.ceil(total / limit);
+      const currentPage = Math.floor(offset / limit) + 1;
+
+      return {
+        facturas,
+        pagination: {
+          total,
+          totalPages,
+          currentPage,
+          limit,
+          hasNext: currentPage < totalPages,
+          hasPrev: currentPage > 1
+        }
+      };
+
     } catch (error) {
-      console.error('Error en buscarPorNit:', error);
-      throw error;
+      console.error('Error en obtenerFacturasCliente:', error);
+      throw new Error('Error al obtener historial de facturas');
     }
-  }
-
-  // Obtener clientes para select
-  static async obtenerClientesParaSelect(search = '') {
-    try {
-      return await ClienteRepository.getForSelect(search);
-    } catch (error) {
-      console.error('Error en obtenerClientesParaSelect:', error);
-      throw error;
-    }
-  }
-
-  // Verificar si existe por NIT
-  static async existePorNit(nit, excludeId = null) {
-    try {
-      if (!nit || nit.trim().length === 0) {
-        throw new Error('NIT es requerido');
-      }
-
-      return await ClienteRepository.existsByNit(nit.trim(), excludeId);
-    } catch (error) {
-      console.error('Error en existePorNit:', error);
-      throw error;
-    }
-  }
-
-  // Validaciones auxiliares
-  static validarEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
-
-  static validarTelefono(telefono) {
-    // Permitir números de Guatemala (8 dígitos) y internacionales
-    const telefonoRegex = /^[\+]?[0-9\-\(\)\s]{8,15}$/;
-    return telefonoRegex.test(telefono);
-  }
-
-  static validarNit(nit) {
-    // Validación básica para NIT de Guatemala
-    const nitRegex = /^[0-9\-]+$/;
-    return nitRegex.test(nit) && nit.length >= 7;
   }
 }
 

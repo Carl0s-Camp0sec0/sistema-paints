@@ -68,6 +68,11 @@ const requireProfile = (profiles) => {
   };
 };
 
+// Alias para compatibilidad con rutas existentes
+const authorizeRoles = (roles) => {
+  return requireProfile(roles);
+};
+
 // Middleware para verificar si es Gerente
 const requireGerente = requireProfile(['Gerente']);
 
@@ -80,6 +85,7 @@ const requireAuth = authenticateToken;
 module.exports = {
   authenticateToken,
   requireProfile,
+  authorizeRoles,  // ← Esta es la función que faltaba
   requireGerente,
   requireGerenteOrDigitador,
   requireAuth
