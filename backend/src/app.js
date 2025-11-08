@@ -18,7 +18,7 @@ const catalogoRoutes = require('./routes/catalogos');
 
 const app = express();
 
-// Configuración de CORS actualizada
+// Configuración de CORS
 const corsOptions = {
   origin: [
     'http://localhost:3000', 
@@ -47,14 +47,15 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-// Ruta de health check actualizada para Fase 2
+// Ruta de health check actualizada
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'Sistema Paints API funcionando',
     timestamp: new Date().toISOString(),
-    version: '2.0.0',
-    fase: 'Fase 2 - Sistema de Facturación',
+    version: '2.1.0', // ACTUALIZADO
+    database: 'sistema_paints_final', // ACTUALIZADO
+    fase: 'Fase 1 y 2 - Completadas',
     features: [
       'Autenticación y usuarios',
       'Gestión de sucursales',
@@ -75,7 +76,7 @@ app.use('/api/sucursales', sucursalRoutes);
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/productos', productoRoutes);
 
-// Nuevas rutas de la API - Fase 2
+// Rutas de la API - Fase 2
 app.use('/api/facturas', facturaRoutes);
 app.use('/api/clientes', clienteRoutes);
 app.use('/api/catalogos', catalogoRoutes);
@@ -86,8 +87,9 @@ app.use(express.static('public'));
 // Ruta raíz informativa
 app.get('/', (req, res) => {
   res.json({
-    message: 'Sistema Paints API - Fase 2',
-    version: '2.0.0',
+    message: 'Sistema Paints API - Fases 1 y 2',
+    version: '2.1.0',
+    database: 'sistema_paints_final',
     documentation: '/health',
     endpoints: {
       auth: '/api/auth',
@@ -99,7 +101,11 @@ app.get('/', (req, res) => {
       catalogos: '/api/catalogos'
     },
     frontend: {
+      login: 'http://localhost:5500/pages/login.html',
       dashboard: 'http://localhost:5500/pages/dashboard.html',
+      sucursales: 'http://localhost:5500/pages/sucursales.html',
+      categorias: 'http://localhost:5500/pages/categorias.html',
+      productos: 'http://localhost:5500/pages/productos.html',
       facturacion: 'http://localhost:5500/pages/facturacion.html',
       clientes: 'http://localhost:5500/pages/clientes.html'
     }
@@ -149,13 +155,14 @@ async function initializeApp() {
     const dbConnected = await testConnection();
     
     if (!dbConnected) {
-      console.error('❌ No se pudo conectar a la base de datos');
+      console.error('❌ No se pudo conectar a la base de datos sistema_paints_final');
+      console.error('💡 Verifica que la base de datos esté creada y configurada correctamente');
       process.exit(1);
     }
     
-    console.log('✅ Base de datos conectada correctamente');
-    console.log('✅ Aplicación Fase 2 inicializada correctamente');
-    console.log('📄 Sistema de facturación listo para usar');
+    console.log('✅ Base de datos sistema_paints_final conectada correctamente');
+    console.log('✅ Aplicación inicializada correctamente');
+    console.log('📋 Fases 1 y 2 del backend completadas');
     
     return app;
   } catch (error) {

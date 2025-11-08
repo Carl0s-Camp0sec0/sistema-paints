@@ -1,88 +1,157 @@
 // backend/src/controllers/authController.js
-const AuthService = require('../services/authService');
+const crypto = require('crypto');
+const { executeQuery } = require('../config/database');
+const { generateToken } = require('../middleware/auth');
 const { responseSuccess, responseError } = require('../utils/responses');
-const { cookieConfig } = require('../config/jwt');
 
 class AuthController {
-  
-  // Login de usuario
+
+  /**
+   * Login de usuario - ACTUALIZADO para nueva estructura
+   */
   static async login(req, res) {
     try {
       const { username, password } = req.body;
 
-      // Validar campos requeridos
+      // Validaciones básicas
       if (!username || !password) {
-        return responseError(res, 'Username y contraseña son requeridos', 400);
+        return responseError(res, 'Username y password son requeridos', 400);
       }
 
-      // Autenticar usuario
-      const authResult = await AuthService.authenticate(username, password);
+      // Buscar usuario - CONSULTA ACTUALIZADA
+      const userQuery = `
+        SELECT 
+          u.id_usuario,
+          u.username,
+          u.password_hash,
+          u.salt,
+          u.perfil_usuario,  -- CAMBIADO: ENUM directo
+          u.estado,
+          u.intentos_login,
+          e.nombres,
+          e.apellidos,
+          e.id_sucursal,
+          s.nombre as sucursal_nombre
+        FROM usuarios u
+        LEFT JOIN empleados e ON u.id_usuario = e.id_usuario  
+        LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
+        WHERE u.username = ?
+      `;
+      
+      const users = await executeQuery(userQuery, [username]);
+      
+      if (!users || users.length === 0) {
+        return responseError(res, 'Credenciales inválidas', 401);
+      }
 
-      // Configurar cookie con el token
-      res.cookie('token', authResult.token, cookieConfig);
+      const user = users[0];
 
-      // Respuesta exitosa
-      return responseSuccess(res, 'Inicio de sesión exitoso', {
-        token: authResult.token,
-        user: authResult.user
+      // Verificar estado del usuario
+      if (!user.estado) {
+        return responseError(res, 'Usuario inactivo', 401);
+      }
+
+      // Verificar intentos de login (máximo 5)
+      if (user.intentos_login >= 5) {
+        return responseError(res, 'Usuario bloqueado por múltiples intentos fallidos', 401);
+      }
+
+      // Verificar contraseña
+      const hashedPassword = crypto.createHash('sha256').update(password + user.salt).digest('hex');
+      
+      if (hashedPassword !== user.password_hash) {
+        // Incrementar intentos fallidos
+        await executeQuery(
+          'UPDATE usuarios SET intentos_login = intentos_login + 1 WHERE id_usuario = ?',
+          [user.id_usuario]
+        );
+        
+        return responseError(res, 'Credenciales inválidas', 401);
+      }
+
+      // Login exitoso - resetear intentos y actualizar último acceso
+      await executeQuery(
+        'UPDATE usuarios SET intentos_login = 0, ultimo_acceso = NOW() WHERE id_usuario = ?',
+        [user.id_usuario]
+      );
+
+      // Generar token
+      const token = generateToken(user);
+
+      // Preparar datos de respuesta
+      const userData = {
+        id_usuario: user.id_usuario,
+        username: user.username,
+        perfil_usuario: user.perfil_usuario, // CAMBIADO: estructura simplificada
+        nombres: user.nombres,
+        apellidos: user.apellidos,
+        id_sucursal: user.id_sucursal,
+        sucursal_nombre: user.sucursal_nombre
+      };
+
+      // Configurar cookie segura
+      res.cookie('authToken', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 horas
+      });
+
+      return responseSuccess(res, 'Login exitoso', {
+        user: userData,
+        token: token
       });
 
     } catch (error) {
       console.error('Error en login:', error);
-      
-      // Manejar errores específicos
-      if (error.message === 'Usuario no encontrado') {
-        return responseError(res, 'Credenciales inválidas', 401);
-      }
-      
-      if (error.message === 'Contraseña incorrecta') {
-        return responseError(res, 'Credenciales inválidas', 401);
-      }
-      
-      if (error.message === 'Usuario desactivado') {
-        return responseError(res, 'Cuenta desactivada, contacte al administrador', 403);
-      }
-      
-      if (error.message === 'Cuenta bloqueada por múltiples intentos fallidos') {
-        return responseError(res, 'Cuenta bloqueada por seguridad, contacte al administrador', 423);
-      }
-
       return responseError(res, 'Error interno del servidor', 500);
     }
   }
 
-  // Logout de usuario
+  /**
+   * Logout de usuario
+   */
   static async logout(req, res) {
     try {
-      // Limpiar cookie del token
-      res.clearCookie('token');
-      
-      return responseSuccess(res, 'Sesión cerrada exitosamente');
+      // Limpiar cookie
+      res.clearCookie('authToken');
+      return responseSuccess(res, 'Logout exitoso');
     } catch (error) {
       console.error('Error en logout:', error);
-      return responseError(res, 'Error al cerrar sesión', 500);
+      return responseError(res, 'Error interno del servidor', 500);
     }
   }
 
-  // Obtener perfil del usuario autenticado
+  /**
+   * Obtener perfil del usuario autenticado
+   */
   static async getProfile(req, res) {
     try {
-      const userId = req.user.id;
-      
-      const userProfile = await AuthService.getProfile(userId);
-      
-      return responseSuccess(res, 'Perfil obtenido exitosamente', userProfile);
+      const userData = {
+        id_usuario: req.user.id_usuario,
+        username: req.user.username,
+        perfil_usuario: req.user.perfil_usuario,
+        nombres: req.user.nombres,
+        apellidos: req.user.apellidos,
+        id_sucursal: req.user.id_sucursal,
+        sucursal_nombre: req.user.sucursal_nombre
+      };
+
+      return responseSuccess(res, 'Perfil obtenido exitosamente', userData);
     } catch (error) {
       console.error('Error en getProfile:', error);
-      return responseError(res, 'Error al obtener perfil', 500);
+      return responseError(res, 'Error interno del servidor', 500);
     }
   }
 
-  // Verificar si el token es válido
+  /**
+   * Verificar token
+   */
   static async verifyToken(req, res) {
     try {
-      // Si llegamos aquí, el token ya fue validado por el middleware
+      // Si llegó hasta aquí, el token es válido (verificado por middleware)
       return responseSuccess(res, 'Token válido', {
+        valid: true,
         user: req.user
       });
     } catch (error) {
@@ -91,68 +160,80 @@ class AuthController {
     }
   }
 
-  // Cambiar contraseña
+  /**
+   * Cambiar contraseña
+   */
   static async changePassword(req, res) {
     try {
-      const userId = req.user.id;
-      const { currentPassword, newPassword, confirmPassword } = req.body;
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.user.id_usuario;
 
-      // Validar campos requeridos
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        return responseError(res, 'Todos los campos son requeridos', 400);
+      // Validaciones
+      if (!currentPassword || !newPassword) {
+        return responseError(res, 'Contraseña actual y nueva son requeridas', 400);
       }
 
-      // Verificar que las nuevas contraseñas coincidan
-      if (newPassword !== confirmPassword) {
-        return responseError(res, 'Las nuevas contraseñas no coinciden', 400);
-      }
-
-      // Validar longitud mínima de contraseña
       if (newPassword.length < 6) {
-        return responseError(res, 'La contraseña debe tener al menos 6 caracteres', 400);
+        return responseError(res, 'La nueva contraseña debe tener al menos 6 caracteres', 400);
       }
 
-      // Cambiar contraseña
-      await AuthService.changePassword(userId, currentPassword, newPassword);
+      // Obtener datos actuales del usuario
+      const userQuery = 'SELECT password_hash, salt FROM usuarios WHERE id_usuario = ?';
+      const users = await executeQuery(userQuery, [userId]);
+      
+      if (!users || users.length === 0) {
+        return responseError(res, 'Usuario no encontrado', 404);
+      }
 
-      return responseSuccess(res, 'Contraseña cambiada exitosamente');
+      const user = users[0];
+
+      // Verificar contraseña actual
+      const currentHash = crypto.createHash('sha256').update(currentPassword + user.salt).digest('hex');
+      
+      if (currentHash !== user.password_hash) {
+        return responseError(res, 'Contraseña actual incorrecta', 400);
+      }
+
+      // Generar nueva contraseña hasheada (mantener mismo salt)
+      const newPasswordHash = crypto.createHash('sha256').update(newPassword + user.salt).digest('hex');
+
+      // Actualizar en base de datos
+      await executeQuery(
+        'UPDATE usuarios SET password_hash = ? WHERE id_usuario = ?',
+        [newPasswordHash, userId]
+      );
+
+      return responseSuccess(res, 'Contraseña actualizada exitosamente');
+
     } catch (error) {
       console.error('Error en changePassword:', error);
-      
-      if (error.message === 'Contraseña actual incorrecta') {
-        return responseError(res, 'La contraseña actual es incorrecta', 400);
-      }
-
-      return responseError(res, 'Error al cambiar contraseña', 500);
+      return responseError(res, 'Error interno del servidor', 500);
     }
   }
 
-  // Refrescar token
+  /**
+   * Refrescar token (para futuras implementaciones)
+   */
   static async refreshToken(req, res) {
     try {
-      const userId = req.user.id;
-      
-      // Obtener datos actuales del usuario
-      const userProfile = await AuthService.getProfile(userId);
-      
-      // Generar nuevo token
-      const newToken = AuthService.generateToken({
-        id: userProfile.id,
-        username: userProfile.username,
-        perfil: userProfile.perfil,
-        id_empleado: userProfile.id_empleado
-      });
+      // Generar nuevo token con la misma información
+      const newToken = generateToken(req.user);
 
-      // Configurar nueva cookie
-      res.cookie('token', newToken, cookieConfig);
+      // Actualizar cookie
+      res.cookie('authToken', newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000
+      });
 
       return responseSuccess(res, 'Token renovado exitosamente', {
-        token: newToken,
-        user: userProfile
+        token: newToken
       });
+
     } catch (error) {
       console.error('Error en refreshToken:', error);
-      return responseError(res, 'Error al renovar token', 500);
+      return responseError(res, 'Error interno del servidor', 500);
     }
   }
 }

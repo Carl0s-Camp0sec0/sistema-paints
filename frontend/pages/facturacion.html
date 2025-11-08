@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturación - Sistema Paints</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'paint-blue': '#2563eb',
+                        'paint-orange': '#f97316',
+                        'paint-gray': '#6b7280'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- jsPDF para generar PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="dashboard.html" class="flex items-center space-x-3">
+                        <i class="fas fa-paint-brush text-paint-blue text-xl"></i>
+                        <span class="text-xl font-bold text-gray-900">Sistema Paints</span>
+                    </a>
+                    <span class="ml-4 text-gray-500">/ Facturación</span>
+                </div>
+                <div class="flex items-center space-x-4" id="userInfo">
+                    <!-- User info will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">
+                    <i class="fas fa-file-invoice text-paint-blue mr-3"></i>
+                    Nueva Factura
+                </h1>
+                <p class="text-gray-600 mt-2">Sistema de facturación con múltiples medios de pago</p>
+            </div>
+            <div class="flex space-x-3">
+                <button id="btnLimpiarFactura" class="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-broom mr-2"></i>
+                    Limpiar
+                </button>
+                <a href="dashboard.html" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Volver
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Panel - Información de Factura y Cliente -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Información del Cliente -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        <i class="fas fa-user text-paint-blue mr-2"></i>
+                        Información del Cliente
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Buscar Cliente</label>
+                            <div class="relative">
+                                <input type="text" id="clienteSearch" 
+                                       placeholder="Buscar por nombre, NIT o teléfono..."
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue focus:border-paint-blue">
+                                <div id="clienteDropdown" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto hidden"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-end">
+                            <button id="btnNuevoCliente" class="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                                <i class="fas fa-plus mr-2"></i>
+                                Nuevo Cliente
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Información del cliente seleccionado -->
+                    <div id="clienteInfo" class="hidden bg-blue-50 p-4 rounded-lg">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <strong>Nombre:</strong>
+                                <div id="clienteNombre">-</div>
+                            </div>
+                            <div>
+                                <strong>NIT:</strong>
+                                <div id="clienteNit">-</div>
+                            </div>
+                            <div>
+                                <strong>Teléfono:</strong>
+                                <div id="clienteTelefono">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Productos -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        <i class="fas fa-boxes text-paint-blue mr-2"></i>
+                        Productos
+                    </h3>
+                    
+                    <!-- Buscar productos -->
+                    <div class="mb-4">
+                        <div class="flex space-x-4">
+                            <div class="flex-1">
+                                <input type="text" id="productoSearch" 
+                                       placeholder="Buscar producto por código o nombre..."
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue">
+                            </div>
+                            <div class="w-32">
+                                <input type="number" id="cantidad" 
+                                       placeholder="Cantidad" min="0.001" step="0.001"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <button id="btnAgregarProducto" class="bg-paint-blue hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div id="productoDropdown" class="relative">
+                            <div class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto hidden"></div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de productos -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Unit.</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descuento</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productosFactura" class="bg-white divide-y divide-gray-200">
+                                <tr id="noProductos">
+                                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                        <i class="fas fa-box-open text-4xl mb-2 block"></i>
+                                        No hay productos agregados
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Medios de Pago -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        <i class="fas fa-credit-card text-paint-blue mr-2"></i>
+                        Medios de Pago
+                    </h3>
+                    
+                    <div class="space-y-4" id="mediosPago">
+                        <div class="flex space-x-4 items-end">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Pago</label>
+                                <select id="tipoPago" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Monto</label>
+                                <input type="number" id="montoPago" step="0.01" min="0" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Referencia (opcional)</label>
+                                <input type="text" id="referenciaPago" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            </div>
+                            <button id="btnAgregarPago" class="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Lista de medios de pago -->
+                    <div class="mt-4">
+                        <div id="listaMediosPago" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Resumen -->
+            <div class="space-y-6">
+                <!-- Resumen de Factura -->
+                <div class="bg-white rounded-lg shadow-md p-6 sticky top-8">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Resumen de Factura</h3>
+                    
+                    <div class="space-y-3">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Subtotal:</span>
+                            <span class="font-medium" id="subtotalFactura">Q 0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Descuento Total:</span>
+                            <span class="font-medium" id="descuentoTotal">Q 0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">IVA (12%):</span>
+                            <span class="font-medium" id="ivaFactura">Q 0.00</span>
+                        </div>
+                        <hr class="border-gray-200">
+                        <div class="flex justify-between text-lg font-bold">
+                            <span>Total:</span>
+                            <span id="totalFactura" class="text-paint-blue">Q 0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Total Pagos:</span>
+                            <span class="font-medium" id="totalPagos">Q 0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Pendiente:</span>
+                            <span class="font-medium" id="pendientePago">Q 0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
+                        <textarea id="observaciones" rows="3" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md resize-none"
+                                  placeholder="Observaciones adicionales..."></textarea>
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="mt-6 space-y-3">
+                        <button id="btnCrearFactura" 
+                                class="w-full bg-paint-blue hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
+                            <i class="fas fa-file-invoice mr-2"></i>
+                            Crear Factura
+                        </button>
+                        <button id="btnValidarStock" 
+                                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            Validar Stock
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="bg-blue-50 rounded-lg p-4 text-sm">
+                    <h4 class="font-semibold text-blue-900 mb-2">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Información
+                    </h4>
+                    <ul class="space-y-1 text-blue-800">
+                        <li>• Debe seleccionar un cliente</li>
+                        <li>• Agregue al menos un producto</li>
+                        <li>• El total de pagos debe ser igual al total de la factura</li>
+                        <li>• Puede usar múltiples medios de pago</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Nuevo Cliente -->
+    <div id="modalNuevoCliente" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg max-w-md w-full mx-4 p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Nuevo Cliente</h3>
+                <button id="btnCerrarModalCliente" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="formNuevoCliente">
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nombres *</label>
+                        <input type="text" name="nombres" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Apellidos *</label>
+                        <input type="text" name="apellidos" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">NIT</label>
+                        <input type="text" name="nit" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+                        <input type="text" name="telefono" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" name="email" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
+                        <textarea name="direccion" rows="2" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue resize-none"></textarea>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" id="btnCancelarCliente" 
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="bg-paint-blue hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                        Guardar Cliente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-paint-blue"></div>
+            <span>Procesando factura...</span>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/auth.js"></script>
+    <script src="../assets/js/utils.js"></script>
+    <script src="../assets/js/facturacion.js"></script>
+</body>
+</html>
