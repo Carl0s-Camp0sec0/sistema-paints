@@ -1,9 +1,9 @@
-// backend/src/routes/facturaRoutes.js - NUEVO ARCHIVO COMPLETO
+// backend/src/routes/facturaRoutes.js - CORREGIDO
 
 const express = require('express');
 const router = express.Router();
 const FacturaController = require('../controllers/facturaController');
-const { authenticateToken } = require('../middlewares/auth');
+const { authenticateToken } = require('../middleware/auth'); // CORRECCIÓN: ../middleware (singular)
 
 // Aplicar autenticación a todas las rutas
 router.use(authenticateToken);

@@ -1,9 +1,9 @@
-// backend/src/routes/clienteRoutes.js - NUEVO ARCHIVO COMPLETO
+// backend/src/routes/clienteRoutes.js - CORREGIDO
 
 const express = require('express');
 const router = express.Router();
 const ClienteController = require('../controllers/clienteController');
-const { authenticateToken } = require('../middlewares/auth');
+const { authenticateToken } = require('../middleware/auth'); // CORRECCIÓN: ../middleware (singular)
 
 // Aplicar autenticación a todas las rutas
 router.use(authenticateToken);

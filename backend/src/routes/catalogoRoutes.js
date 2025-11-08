@@ -1,10 +1,10 @@
-// backend/src/routes/catalogoRoutes.js - NUEVO ARCHIVO COMPLETO
+// backend/src/routes/catalogoRoutes.js - CORREGIDO
 
 const express = require('express');
 const router = express.Router();
 const FacturaService = require('../services/facturaService');
 const { responseSuccess, responseError } = require('../utils/responses');
-const { authenticateToken } = require('../middlewares/auth');
+const { authenticateToken } = require('../middleware/auth'); // CORRECCIÓN: ../middleware (singular)
 
 // Aplicar autenticación a todas las rutas
 router.use(authenticateToken);

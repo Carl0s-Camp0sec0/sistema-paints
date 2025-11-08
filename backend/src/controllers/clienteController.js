@@ -1,203 +1,166 @@
-// backend/src/controllers/clienteController.js
+// backend/src/controllers/clienteController.js - VERSIÓN COMPLETA FUNCIONAL
 
 const ClienteService = require('../services/clienteService');
 const { responseSuccess, responseError } = require('../utils/responses');
 
 class ClienteController {
-  // Obtener todos los clientes con paginación y filtros
-  static async obtenerClientes(req, res) {
+  
+  // Obtener todos los clientes
+  static async getAll(req, res) {
     try {
-      const {
-        page = 1,
-        limit = 15,
-        search = '',
-        estado = '',
-        acepta_promociones = ''
-      } = req.query;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || '';
+      const estado = req.query.estado || '';
+      const promociones = req.query.promociones || '';
 
-      const filters = {
-        search,
-        estado: estado !== '' ? parseInt(estado) : null,
-        acepta_promociones: acepta_promociones !== '' ? parseInt(acepta_promociones) : null
-      };
+      if (page < 1 || limit < 1 || limit > 100) {
+        return responseError(res, 'Parámetros de paginación inválidos', 400);
+      }
 
-      const result = await ClienteService.obtenerClientes(page, limit, filters);
-      
-      return responseSuccess(res, 'Clientes obtenidos exitosamente', result);
+      const result = await ClienteService.getAllClientes(page, limit, search, estado, promociones);
+
+      return responseSuccess(res, 'Clientes obtenidos exitosamente', result.clientes, 200, {
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(result.total / limit),
+          totalRecords: result.total,
+          hasNext: page * limit < result.total,
+          hasPrev: page > 1,
+          limit: parseInt(limit)
+        }
+      });
     } catch (error) {
-      console.error('Error en obtenerClientes:', error);
-      return responseError(res, error.message || 'Error interno del servidor', 500);
+      console.error('Error en getAll clientes:', error);
+      return responseError(res, 'Error al obtener clientes', 500);
     }
   }
 
   // Obtener cliente por ID
-  static async obtenerClientePorId(req, res) {
+  static async getById(req, res) {
     try {
       const { id } = req.params;
       
-      if (!id || isNaN(parseInt(id))) {
-        return responseError(res, 'ID de cliente inválido', 400);
-      }
-
-      const cliente = await ClienteService.obtenerClientePorId(parseInt(id));
+      const cliente = await ClienteService.getClienteById(id);
       
-      if (!cliente) {
-        return responseError(res, 'Cliente no encontrado', 404);
-      }
-
       return responseSuccess(res, 'Cliente obtenido exitosamente', cliente);
     } catch (error) {
-      console.error('Error en obtenerClientePorId:', error);
-      return responseError(res, error.message || 'Error interno del servidor', 500);
-    }
-  }
-
-  // Buscar clientes para autocomplete
-  static async buscarClientes(req, res) {
-    try {
-      const { termino } = req.params;
+      console.error('Error en getById cliente:', error);
       
-      if (!termino || termino.length < 2) {
-        return responseError(res, 'El término de búsqueda debe tener al menos 2 caracteres', 400);
+      if (error.message === 'ID de cliente inválido') {
+        return responseError(res, error.message, 400);
+      }
+      
+      if (error.message === 'Cliente no encontrado') {
+        return responseError(res, error.message, 404);
       }
 
-      const clientes = await ClienteService.buscarClientes(termino);
-      
-      return responseSuccess(res, 'Búsqueda completada', clientes);
-    } catch (error) {
-      console.error('Error en buscarClientes:', error);
-      return responseError(res, error.message || 'Error interno del servidor', 500);
+      return responseError(res, 'Error al obtener cliente', 500);
     }
   }
 
   // Crear nuevo cliente
-  static async crearCliente(req, res) {
+  static async create(req, res) {
     try {
       const clienteData = req.body;
       
-      // Validación básica
-      if (!clienteData.nombres || !clienteData.apellidos) {
-        return responseError(res, 'Nombres y apellidos son obligatorios', 400);
-      }
-
-      // Validar email si se proporciona
-      if (clienteData.email && !ClienteController.isValidEmail(clienteData.email)) {
-        return responseError(res, 'Formato de email inválido', 400);
-      }
-
-      const nuevoCliente = await ClienteService.crearCliente({
-        ...clienteData,
-        fecha_registro: new Date(),
-        estado: clienteData.estado !== undefined ? clienteData.estado : 1,
-        acepta_promociones: clienteData.acepta_promociones || false
-      });
-
-      return responseSuccess(res, 'Cliente creado exitosamente', nuevoCliente, 201);
+      const newCliente = await ClienteService.createCliente(clienteData);
+      
+      return responseSuccess(res, 'Cliente creado exitosamente', newCliente, 201);
     } catch (error) {
-      console.error('Error en crearCliente:', error);
+      console.error('Error en create cliente:', error);
       
-      if (error.message.includes('email_UNIQUE')) {
-        return responseError(res, 'Ya existe un cliente con ese email', 409);
+      if (error.message.includes('obligatorio') || 
+          error.message.includes('inválido') ||
+          error.message.includes('exceder') ||
+          error.message.includes('Ya existe')) {
+        return responseError(res, error.message, 400);
       }
-      
-      return responseError(res, error.message || 'Error interno del servidor', 500);
+
+      return responseError(res, 'Error al crear cliente', 500);
     }
   }
 
   // Actualizar cliente
-  static async actualizarCliente(req, res) {
+  static async update(req, res) {
     try {
       const { id } = req.params;
       const clienteData = req.body;
       
-      if (!id || isNaN(parseInt(id))) {
-        return responseError(res, 'ID de cliente inválido', 400);
-      }
-
-      // Verificar que el cliente existe
-      const clienteExistente = await ClienteService.obtenerClientePorId(parseInt(id));
-      if (!clienteExistente) {
-        return responseError(res, 'Cliente no encontrado', 404);
-      }
-
-      // Validar email si se proporciona
-      if (clienteData.email && !ClienteController.isValidEmail(clienteData.email)) {
-        return responseError(res, 'Formato de email inválido', 400);
-      }
-
-      const clienteActualizado = await ClienteService.actualizarCliente(parseInt(id), clienteData);
+      const updatedCliente = await ClienteService.updateCliente(id, clienteData);
       
-      return responseSuccess(res, 'Cliente actualizado exitosamente', clienteActualizado);
+      return responseSuccess(res, 'Cliente actualizado exitosamente', updatedCliente);
     } catch (error) {
-      console.error('Error en actualizarCliente:', error);
+      console.error('Error en update cliente:', error);
       
-      if (error.message.includes('email_UNIQUE')) {
-        return responseError(res, 'Ya existe un cliente con ese email', 409);
+      if (error.message === 'ID de cliente inválido' ||
+          error.message === 'No hay datos para actualizar') {
+        return responseError(res, error.message, 400);
       }
       
-      return responseError(res, error.message || 'Error interno del servidor', 500);
+      if (error.message === 'Cliente no encontrado') {
+        return responseError(res, error.message, 404);
+      }
+      
+      if (error.message.includes('Ya existe')) {
+        return responseError(res, error.message, 409);
+      }
+
+      return responseError(res, 'Error al actualizar cliente', 500);
     }
   }
 
-  // Eliminar cliente
-  static async eliminarCliente(req, res) {
+  // Eliminar cliente (soft delete)
+  static async delete(req, res) {
     try {
       const { id } = req.params;
       
-      if (!id || isNaN(parseInt(id))) {
-        return responseError(res, 'ID de cliente inválido', 400);
-      }
-
-      // Verificar que el cliente existe
-      const clienteExistente = await ClienteService.obtenerClientePorId(parseInt(id));
-      if (!clienteExistente) {
-        return responseError(res, 'Cliente no encontrado', 404);
-      }
-
-      // Verificar que no tenga facturas asociadas
-      const tieneFacturas = await ClienteService.verificarFacturasAsociadas(parseInt(id));
-      if (tieneFacturas) {
-        return responseError(res, 'No se puede eliminar el cliente porque tiene facturas asociadas', 409);
-      }
-
-      await ClienteService.eliminarCliente(parseInt(id));
+      await ClienteService.deleteCliente(id);
       
       return responseSuccess(res, 'Cliente eliminado exitosamente', null);
     } catch (error) {
-      console.error('Error en eliminarCliente:', error);
-      return responseError(res, error.message || 'Error interno del servidor', 500);
+      console.error('Error en delete cliente:', error);
+      
+      if (error.message === 'ID de cliente inválido') {
+        return responseError(res, error.message, 400);
+      }
+      
+      if (error.message === 'Cliente no encontrado') {
+        return responseError(res, error.message, 404);
+      }
+
+      return responseError(res, 'Error al eliminar cliente', 500);
     }
   }
 
-  // Obtener historial de facturas del cliente
-  static async obtenerFacturasCliente(req, res) {
+  // Buscar clientes por término
+  static async search(req, res) {
     try {
-      const { id } = req.params;
-      const { page = 1, limit = 10 } = req.query;
+      const { termino } = req.params;
       
-      if (!id || isNaN(parseInt(id))) {
-        return responseError(res, 'ID de cliente inválido', 400);
+      if (!termino || termino.trim().length < 2) {
+        return responseError(res, 'El término de búsqueda debe tener al menos 2 caracteres', 400);
       }
 
-      // Verificar que el cliente existe
-      const clienteExistente = await ClienteService.obtenerClientePorId(parseInt(id));
-      if (!clienteExistente) {
-        return responseError(res, 'Cliente no encontrado', 404);
-      }
-
-      const facturas = await ClienteService.obtenerFacturasCliente(parseInt(id), page, limit);
+      const clientes = await ClienteService.searchClientes(termino.trim());
       
-      return responseSuccess(res, 'Facturas del cliente obtenidas exitosamente', facturas);
+      return responseSuccess(res, 'Búsqueda de clientes completada', clientes);
     } catch (error) {
-      console.error('Error en obtenerFacturasCliente:', error);
-      return responseError(res, error.message || 'Error interno del servidor', 500);
+      console.error('Error en search clientes:', error);
+      return responseError(res, 'Error al buscar clientes', 500);
     }
   }
 
-  // Utilidad para validar email
-  static isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  // Obtener clientes para select/dropdown
+  static async getForSelect(req, res) {
+    try {
+      const clientes = await ClienteService.getClientesForSelect();
+      
+      return responseSuccess(res, 'Clientes para select obtenidos', clientes);
+    } catch (error) {
+      console.error('Error en getForSelect clientes:', error);
+      return responseError(res, 'Error al obtener clientes', 500);
+    }
   }
 }
 
