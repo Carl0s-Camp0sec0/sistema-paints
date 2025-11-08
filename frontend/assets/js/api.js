@@ -1,64 +1,67 @@
-// frontend/assets/js/api.js - VERSIÓN CORREGIDA
+// frontend/assets/js/api.js - VERSIÓN CORREGIDA COMPLETA
 
-// Configuración de la API
-const API_CONFIG = {
-    baseURL: 'http://localhost:3000/api',
-    timeout: 30000,
-    retries: 3
-};
-
-// Clase para manejar todas las llamadas a la API
 class ApiClient {
     constructor() {
-        this.baseURL = API_CONFIG.baseURL;
-        this.timeout = API_CONFIG.timeout;
+        this.baseURL = 'http://localhost:3000/api'; // SIN doble /api
+        this.timeout = 10000;
+        this.token = this.getToken();
     }
 
-    // Obtener token del localStorage
+    // Token management
     getToken() {
-        return localStorage.getItem('auth_token');
+        return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
     }
 
-    // Guardar token en localStorage
-    setToken(token) {
-        localStorage.setItem('auth_token', token);
+    setToken(token, remember = false) {
+        if (remember) {
+            localStorage.setItem('authToken', token);
+            sessionStorage.removeItem('authToken');
+        } else {
+            sessionStorage.setItem('authToken', token);
+            localStorage.removeItem('authToken');
+        }
+        this.token = token;
     }
 
-    // Limpiar token
     clearToken() {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_data');
+        localStorage.removeItem('authToken');
+        sessionStorage.removeItem('authToken');
+        this.token = null;
     }
 
-    // Método principal para hacer peticiones HTTP
-    async request(endpoint, options = {}) {
-        const url = `${this.baseURL}${endpoint}`;
-        
-        const defaultOptions = {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include',
+    // Default headers
+    getHeaders(includeAuth = true) {
+        const headers = {
+            'Content-Type': 'application/json',
         };
 
-        const mergedOptions = { ...defaultOptions, ...options };
-
-        // Agregar Authorization header si hay token
-        const token = this.getToken();
-        if (token) {
-            mergedOptions.headers.Authorization = `Bearer ${token}`;
+        if (includeAuth && this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
         }
 
-        // Si hay parámetros GET, agregarlos a la URL
-        if (options.params && mergedOptions.method === 'GET') {
-            const searchParams = new URLSearchParams();
-            Object.entries(options.params).forEach(([key, value]) => {
-                if (value !== null && value !== undefined && value !== '') {
-                    searchParams.append(key, value);
-                }
-            });
-            const queryString = searchParams.toString();
+        return headers;
+    }
+
+    // Main request method
+    async request(endpoint, options = {}) {
+        const mergedOptions = {
+            method: 'GET',
+            headers: this.getHeaders(options.includeAuth !== false),
+            ...options
+        };
+
+        // Handle FormData differently
+        if (options.body instanceof FormData) {
+            delete mergedOptions.headers['Content-Type'];
+        } else if (options.body && typeof options.body === 'object') {
+            mergedOptions.body = JSON.stringify(options.body);
+        }
+
+        // Build URL with query parameters
+        let url = `${this.baseURL}${endpoint}`;
+        
+        if (options.params) {
+            const queryString = new URLSearchParams(options.params).toString();
             if (queryString) {
                 const separator = url.includes('?') ? '&' : '?';
                 return this.request(`${endpoint}${separator}${queryString}`, { ...options, params: undefined });
@@ -78,7 +81,7 @@ class ApiClient {
 
             clearTimeout(timeoutId);
 
-            // Manejar respuesta
+            // Handle response
             const data = await this.handleResponse(response);
             return data;
 
@@ -88,7 +91,7 @@ class ApiClient {
         }
     }
 
-    // Manejar respuesta HTTP
+    // Handle HTTP response
     async handleResponse(response) {
         const contentType = response.headers.get('content-type');
         
@@ -106,7 +109,7 @@ class ApiClient {
         }
 
         if (!response.ok) {
-            // Si es error 401, limpiar token y redirigir a login
+            // If 401, clear token and redirect to login
             if (response.status === 401) {
                 this.clearToken();
                 if (!window.location.pathname.includes('login.html')) {
@@ -122,7 +125,7 @@ class ApiClient {
         return data;
     }
 
-    // Manejar errores de red
+    // Handle network errors
     handleError(error) {
         if (error.name === 'AbortError') {
             return new Error('Tiempo de espera agotado. Verifica tu conexión.');
@@ -135,7 +138,7 @@ class ApiClient {
         return error;
     }
 
-    // Métodos HTTP simplificados
+    // HTTP methods
     async get(endpoint, options = {}) {
         return this.request(endpoint, { ...options, method: 'GET' });
     }
@@ -144,7 +147,7 @@ class ApiClient {
         const requestOptions = {
             ...options,
             method: 'POST',
-            body: data ? JSON.stringify(data) : null
+            body: data ? (data instanceof FormData ? data : data) : null
         };
         return this.request(endpoint, requestOptions);
     }
@@ -153,7 +156,7 @@ class ApiClient {
         const requestOptions = {
             ...options,
             method: 'PUT',
-            body: data ? JSON.stringify(data) : null
+            body: data ? (data instanceof FormData ? data : data) : null
         };
         return this.request(endpoint, requestOptions);
     }
@@ -162,74 +165,33 @@ class ApiClient {
         return this.request(endpoint, { ...options, method: 'DELETE' });
     }
 
-    // Verificar si el usuario está autenticado
-    isAuthenticated() {
-        const token = this.getToken();
-        const userData = localStorage.getItem('user_data');
-        return !!(token && userData);
-    }
-
-    // Obtener datos del usuario
-    getCurrentUser() {
-        const userData = localStorage.getItem('user_data');
-        return userData ? JSON.parse(userData) : null;
-    }
-
-    // Verificar si el servidor está disponible
-    async checkServerConnection() {
+    // Health check
+    async healthCheck() {
         try {
-            const response = await fetch('http://localhost:3000/health', {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
-            });
+            const response = await fetch('http://localhost:3000/health');
             return response.ok;
-        } catch (error) {
-            console.error('❌ Servidor no disponible:', error);
+        } catch {
             return false;
         }
     }
 }
 
-// Instancia global de la API
+// Services object for different entities
 const api = new ApiClient();
 
-// Servicios específicos de la API
+// Service objects for different modules
 const authService = {
     async login(credentials) {
-        try {
-            const response = await api.post('/auth/login', credentials);
-            if (response.success && response.data.token) {
-                api.setToken(response.data.token);
-                localStorage.setItem('user_data', JSON.stringify(response.data.user));
-            }
-            return response;
-        } catch (error) {
-            console.error('Error en login:', error);
-            throw error;
-        }
-    },
-
-    async logout() {
-        try {
-            await api.post('/auth/logout');
-        } catch (error) {
-            console.error('Error en logout:', error);
-        } finally {
-            api.clearToken();
-            window.location.href = '/pages/login.html';
-        }
+        return api.post('/auth/login', credentials);
     },
 
     async getProfile() {
         return api.get('/auth/profile');
     },
 
-    async verifyToken() {
-        return api.post('/auth/verify-token');
-    },
-
-    async changePassword(passwordData) {
-        return api.post('/auth/change-password', passwordData);
+    async logout() {
+        api.clearToken();
+        return { success: true };
     }
 };
 
@@ -252,10 +214,6 @@ const sucursalesService = {
 
     async delete(id) {
         return api.delete(`/sucursales/${id}`);
-    },
-
-    async findNearest(lat, lng) {
-        return api.get('/sucursales/nearest', { params: { lat, lng } });
     }
 };
 
@@ -300,6 +258,10 @@ const productosService = {
 
     async delete(id) {
         return api.delete(`/productos/${id}`);
+    },
+
+    async getForSelect() {
+        return api.get('/productos/select/dropdown');
     }
 };
 
@@ -326,6 +288,10 @@ const clientesService = {
 
     async search(termino) {
         return api.get(`/clientes/buscar/${encodeURIComponent(termino)}`);
+    },
+
+    async getForSelect() {
+        return api.get('/clientes/select/dropdown');
     }
 };
 
@@ -342,12 +308,20 @@ const facturasService = {
         return api.post('/facturas', data);
     },
 
+    async anular(id) {
+        return api.put(`/facturas/${id}/anular`);
+    },
+
     async validarStock(productos) {
         return api.post('/facturas/validar-stock', { productos });
     },
 
-    async anular(id) {
-        return api.put(`/facturas/${id}/anular`);
+    async buscarPorNumero(numero) {
+        return api.get(`/facturas/numero/${numero}`);
+    },
+
+    async obtenerDetalleImpresion(id) {
+        return api.get(`/facturas/${id}/imprimir`);
     }
 };
 
@@ -356,29 +330,30 @@ const catalogosService = {
         return api.get('/catalogos/tipos-pago');
     },
 
+    async getSeriesFactura() {
+        return api.get('/catalogos/series-factura');
+    },
+
     async getProductosFacturacion() {
         return api.get('/catalogos/productos-facturacion');
     }
 };
 
-// Verificación de conexión al cargar
-document.addEventListener('DOMContentLoaded', async () => {
-    const serverAvailable = await api.checkServerConnection();
-    if (!serverAvailable) {
-        console.error('❌ No se puede conectar al backend');
-        if (typeof utils !== 'undefined' && utils.showAlert) {
-            utils.showAlert(
-                'No se puede conectar al servidor. Verifica que el backend esté corriendo en http://localhost:3000', 
-                'error', 
-                0 // No auto-hide
-            );
-        }
-    } else {
-        console.log('✅ Conexión al backend establecida');
-    }
-});
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { 
+        api, 
+        authService, 
+        sucursalesService, 
+        categoriasService, 
+        productosService, 
+        clientesService, 
+        facturasService, 
+        catalogosService 
+    };
+}
 
-// Exportar para uso global
+// Global objects for browser usage
 window.api = api;
 window.authService = authService;
 window.sucursalesService = sucursalesService;

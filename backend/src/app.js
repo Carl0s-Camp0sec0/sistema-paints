@@ -1,4 +1,5 @@
-// backend/src/app.js
+// backend/src/app.js - VERSIÓN COMPLETA CORREGIDA
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -11,10 +12,10 @@ const sucursalRoutes = require('./routes/sucursalRoutes');
 const categoriaRoutes = require('./routes/categoriaRoutes');
 const productoRoutes = require('./routes/productoRoutes');
 
-// Importar nuevas rutas de Fase 2
-const facturaRoutes = require('./routes/facturas');
-const clienteRoutes = require('./routes/clientes');
-const catalogoRoutes = require('./routes/catalogos');
+// CORRECCIÓN: Importar nuevas rutas de Fase 2 con nombres exactos
+const facturaRoutes = require('./routes/facturaRoutes');
+const clienteRoutes = require('./routes/clienteRoutes');
+const catalogoRoutes = require('./routes/catalogoRoutes');
 
 const app = express();
 
@@ -53,8 +54,8 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     message: 'Sistema Paints API funcionando',
     timestamp: new Date().toISOString(),
-    version: '2.1.0', // ACTUALIZADO
-    database: 'sistema_paints_final', // ACTUALIZADO
+    version: '2.1.0',
+    database: 'sistema_paints_final',
     fase: 'Fase 1 y 2 - Completadas',
     features: [
       'Autenticación y usuarios',
@@ -76,7 +77,7 @@ app.use('/api/sucursales', sucursalRoutes);
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/productos', productoRoutes);
 
-// Rutas de la API - Fase 2
+// CORRECCIÓN: Rutas de la API - Fase 2 con nombres exactos
 app.use('/api/facturas', facturaRoutes);
 app.use('/api/clientes', clienteRoutes);
 app.use('/api/catalogos', catalogoRoutes);
