@@ -1,6 +1,7 @@
-// backend/src/controllers/productoController.js
+// backend/src/controllers/productoController.js - VERSIÓN COMPLETA CORREGIDA
+
 const ProductoService = require('../services/productoService');
-const { responseSuccess, responseError, responsePaginated } = require('../utils/responses');
+const { responseSuccess, responseError } = require('../utils/responses');
 
 class ProductoController {
   
@@ -18,16 +19,17 @@ class ProductoController {
 
       const result = await ProductoService.getAllProductos(page, limit, search, categoria);
 
-      return responsePaginated(
-        res, 
-        'Productos obtenidos exitosamente',
-        result.productos,
-        {
-          page,
-          limit,
-          total: result.total
+      // CORRECCIÓN: Estructura de respuesta consistente
+      return responseSuccess(res, 'Productos obtenidos exitosamente', result.productos, 200, {
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(result.total / limit),
+          totalRecords: result.total,
+          hasNext: page * limit < result.total,
+          hasPrev: page > 1,
+          limit: parseInt(limit)
         }
-      );
+      });
     } catch (error) {
       console.error('Error en getAll productos:', error);
       return responseError(res, 'Error al obtener productos', 500);
@@ -68,7 +70,7 @@ class ProductoController {
     } catch (error) {
       console.error('Error en create producto:', error);
       
-      if (error.message.includes('requerido') || 
+      if (error.message.includes('obligatorio') || 
           error.message.includes('inválido') ||
           error.message.includes('exceder') ||
           error.message.includes('Ya existe')) {
@@ -99,6 +101,10 @@ class ProductoController {
       if (error.message === 'Producto no encontrado') {
         return responseError(res, error.message, 404);
       }
+      
+      if (error.message.includes('Ya existe')) {
+        return responseError(res, error.message, 409);
+      }
 
       return responseError(res, 'Error al actualizar producto', 500);
     }
@@ -111,7 +117,7 @@ class ProductoController {
       
       await ProductoService.deleteProducto(id);
       
-      return responseSuccess(res, 'Producto eliminado exitosamente');
+      return responseSuccess(res, 'Producto eliminado exitosamente', null);
     } catch (error) {
       console.error('Error en delete producto:', error);
       
@@ -142,7 +148,8 @@ class ProductoController {
   // Obtener productos con stock bajo
   static async getLowStock(req, res) {
     try {
-      const productos = await ProductoService.getProductsWithLowStock();
+      const limite = parseInt(req.query.limite) || 10;
+      const productos = await ProductoService.getProductsWithLowStock(limite);
       
       return responseSuccess(res, 'Productos con stock bajo obtenidos', productos);
     } catch (error) {
@@ -156,12 +163,34 @@ class ProductoController {
     try {
       const { id } = req.params;
       
-      const history = await ProductoService.getPriceHistory(id);
+      if (!id || isNaN(id)) {
+        return responseError(res, 'ID de producto inválido', 400);
+      }
       
-      return responseSuccess(res, 'Historial de precios obtenido', history);
+      const historial = await ProductoService.getPriceHistory(id);
+      
+      return responseSuccess(res, 'Historial de precios obtenido', historial);
     } catch (error) {
       console.error('Error en getPriceHistory:', error);
       return responseError(res, 'Error al obtener historial de precios', 500);
+    }
+  }
+
+  // Obtener stock por producto
+  static async getStock(req, res) {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(id)) {
+        return responseError(res, 'ID de producto inválido', 400);
+      }
+      
+      const stock = await ProductoService.getStockByProduct(id);
+      
+      return responseSuccess(res, 'Stock del producto obtenido', stock);
+    } catch (error) {
+      console.error('Error en getStock:', error);
+      return responseError(res, 'Error al obtener stock del producto', 500);
     }
   }
 
@@ -169,31 +198,34 @@ class ProductoController {
   static async updatePrice(req, res) {
     try {
       const { id } = req.params;
-      const priceData = {
-        ...req.body,
-        id_empleado_modifico: req.user.id_empleado
-      };
+      const priceData = req.body;
       
-      const result = await ProductoService.updatePrice(id, priceData);
+      if (!id || isNaN(id)) {
+        return responseError(res, 'ID de producto inválido', 400);
+      }
+
+      if (!priceData.precio_venta || isNaN(priceData.precio_venta) || priceData.precio_venta <= 0) {
+        return responseError(res, 'Precio de venta inválido', 400);
+      }
+
+      // Verificar que el producto existe
+      await ProductoService.getProductoById(id);
+
+      // Agregar datos necesarios
+      priceData.id_producto = parseInt(id);
+      priceData.motivo_cambio = priceData.motivo_cambio || 'Actualización de precio';
+
+      const priceId = await ProductoService.updatePrice(priceData);
       
-      return responseSuccess(res, 'Precio actualizado exitosamente', result);
+      return responseSuccess(res, 'Precio actualizado exitosamente', { id_historial_precio: priceId });
     } catch (error) {
       console.error('Error en updatePrice:', error);
-      return responseError(res, 'Error al actualizar precio', 500);
-    }
-  }
+      
+      if (error.message === 'Producto no encontrado') {
+        return responseError(res, error.message, 404);
+      }
 
-  // Obtener stock del producto
-  static async getStock(req, res) {
-    try {
-      const { id } = req.params;
-      
-      const stock = await ProductoService.getProductStock(id);
-      
-      return responseSuccess(res, 'Stock del producto obtenido', stock);
-    } catch (error) {
-      console.error('Error en getStock:', error);
-      return responseError(res, 'Error al obtener stock del producto', 500);
+      return responseError(res, 'Error al actualizar precio', 500);
     }
   }
 }

@@ -1,6 +1,7 @@
-// backend/src/controllers/sucursalController.js
+// backend/src/controllers/sucursalController.js - VERSIÓN COMPLETA CORREGIDA
+
 const SucursalService = require('../services/sucursalService');
-const { responseSuccess, responseError, responsePaginated } = require('../utils/responses');
+const { responseSuccess, responseError } = require('../utils/responses');
 
 class SucursalController {
   
@@ -17,16 +18,17 @@ class SucursalController {
 
       const result = await SucursalService.getAllSucursales(page, limit, search);
 
-      return responsePaginated(
-        res, 
-        'Sucursales obtenidas exitosamente',
-        result.sucursales,
-        {
-          page,
-          limit,
-          total: result.total
+      // CORRECCIÓN: Estructura de respuesta consistente
+      return responseSuccess(res, 'Sucursales obtenidas exitosamente', result.sucursales, 200, {
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(result.total / limit),
+          totalRecords: result.total,
+          hasNext: page * limit < result.total,
+          hasPrev: page > 1,
+          limit: parseInt(limit)
         }
-      );
+      });
     } catch (error) {
       console.error('Error en getAll sucursales:', error);
       return responseError(res, 'Error al obtener sucursales', 500);
@@ -67,7 +69,7 @@ class SucursalController {
     } catch (error) {
       console.error('Error en create sucursal:', error);
       
-      if (error.message.includes('requerido') || 
+      if (error.message.includes('obligatorio') || 
           error.message.includes('inválido') ||
           error.message.includes('exceder') ||
           error.message.includes('Ya existe')) {
@@ -114,7 +116,7 @@ class SucursalController {
       
       await SucursalService.deleteSucursal(id);
       
-      return responseSuccess(res, 'Sucursal eliminada exitosamente');
+      return responseSuccess(res, 'Sucursal eliminada exitosamente', null);
     } catch (error) {
       console.error('Error en delete sucursal:', error);
       
@@ -130,6 +132,26 @@ class SucursalController {
     }
   }
 
+  // Buscar sucursal más cercana
+  static async findNearest(req, res) {
+    try {
+      const { lat, lng } = req.query;
+      const limit = parseInt(req.query.limit) || 5;
+
+      const sucursales = await SucursalService.findNearestSucursal(parseFloat(lat), parseFloat(lng), limit);
+      
+      return responseSuccess(res, 'Sucursales cercanas encontradas', sucursales);
+    } catch (error) {
+      console.error('Error en findNearest:', error);
+      
+      if (error.message === 'Coordenadas inválidas') {
+        return responseError(res, error.message, 400);
+      }
+
+      return responseError(res, 'Error al buscar sucursales cercanas', 500);
+    }
+  }
+
   // Obtener sucursales para select
   static async getForSelect(req, res) {
     try {
@@ -137,36 +159,8 @@ class SucursalController {
       
       return responseSuccess(res, 'Sucursales para select obtenidas', sucursales);
     } catch (error) {
-      console.error('Error en getForSelect sucursales:', error);
+      console.error('Error en getForSelect:', error);
       return responseError(res, 'Error al obtener sucursales', 500);
-    }
-  }
-
-  // Buscar sucursal más cercana por GPS
-  static async findNearest(req, res) {
-    try {
-      const { lat, lng } = req.query;
-      const limit = parseInt(req.query.limit) || 3;
-
-      if (!lat || !lng) {
-        return responseError(res, 'Coordenadas de latitud y longitud son requeridas', 400);
-      }
-
-      const sucursales = await SucursalService.findNearestSucursal(
-        parseFloat(lat), 
-        parseFloat(lng), 
-        limit
-      );
-      
-      return responseSuccess(res, 'Sucursales más cercanas encontradas', sucursales);
-    } catch (error) {
-      console.error('Error en findNearest sucursales:', error);
-      
-      if (error.message === 'Coordenadas inválidas') {
-        return responseError(res, error.message, 400);
-      }
-
-      return responseError(res, 'Error al buscar sucursales cercanas', 500);
     }
   }
 }

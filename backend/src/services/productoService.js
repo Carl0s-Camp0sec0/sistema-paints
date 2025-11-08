@@ -1,4 +1,5 @@
-// backend/src/services/productoService.js
+// backend/src/services/productoService.js - CORREGIDO PARA CONSISTENCIA
+
 const ProductoRepository = require('../repositories/productoRepository');
 
 class ProductoService {
@@ -7,7 +8,14 @@ class ProductoService {
   static async getAllProductos(page = 1, limit = 10, search = '', categoria = '') {
     try {
       const result = await ProductoRepository.findAll(page, limit, search, categoria);
-      return result;
+      
+      // CORRECCIÓN: Estructura consistente como sucursales
+      return {
+        productos: result.data || result.productos || result,  // Adaptable a tu estructura
+        total: result.total || result.length || 0,
+        page: result.page || page,
+        limit: result.limit || limit
+      };
     } catch (error) {
       console.error('Error en getAllProductos:', error);
       throw error;
@@ -46,20 +54,19 @@ class ProductoService {
         throw new Error('Ya existe un producto con este código');
       }
 
-      const productoId = await ProductoRepository.create(productoData);
+      const newProducto = await ProductoRepository.create(productoData);
       
       // Si se proporciona precio, crearlo
-      if (productoData.precio_venta) {
+      if (productoData.precio_venta && newProducto.id_producto) {
         await ProductoRepository.createPrice({
-          id_producto: productoId,
+          id_producto: newProducto.id_producto,
           precio_venta: productoData.precio_venta,
           precio_compra: productoData.precio_compra || null,
-          motivo_cambio: 'Precio inicial',
-          id_empleado_modifico: productoData.id_empleado_modifico || null
+          motivo_cambio: 'Precio inicial'
         });
       }
 
-      return await this.getProductoById(productoId);
+      return newProducto;
     } catch (error) {
       console.error('Error en createProducto:', error);
       throw error;
@@ -89,13 +96,8 @@ class ProductoService {
         }
       }
 
-      const updated = await ProductoRepository.update(id, productoData);
-      
-      if (!updated) {
-        throw new Error('No se pudo actualizar el producto');
-      }
-
-      return await this.getProductoById(id);
+      const updatedProducto = await ProductoRepository.update(id, productoData);
+      return updatedProducto;
     } catch (error) {
       console.error('Error en updateProducto:', error);
       throw error;
@@ -112,12 +114,7 @@ class ProductoService {
       // Verificar que el producto existe
       await this.getProductoById(id);
 
-      const deleted = await ProductoRepository.delete(id);
-      
-      if (!deleted) {
-        throw new Error('No se pudo eliminar el producto');
-      }
-
+      await ProductoRepository.delete(id);
       return true;
     } catch (error) {
       console.error('Error en deleteProducto:', error);
@@ -128,7 +125,8 @@ class ProductoService {
   // Obtener productos para select
   static async getProductosForSelect() {
     try {
-      return await ProductoRepository.getForSelect();
+      const productos = await ProductoRepository.getForSelect();
+      return productos;
     } catch (error) {
       console.error('Error en getProductosForSelect:', error);
       throw error;
@@ -136,9 +134,26 @@ class ProductoService {
   }
 
   // Obtener productos con stock bajo
-  static async getProductsWithLowStock() {
+  static async getProductsWithLowStock(limite = 10) {
     try {
-      return await ProductoRepository.getProductsWithLowStock();
+      const sql = `
+        SELECT 
+          p.id_producto,
+          p.codigo,
+          p.nombre,
+          COALESCE(SUM(sb.cantidad_actual), 0) as stock_actual
+        FROM productos p
+        LEFT JOIN stock_bodega sb ON p.id_producto = sb.id_producto
+        WHERE p.estado = TRUE
+        GROUP BY p.id_producto, p.codigo, p.nombre
+        HAVING stock_actual <= ?
+        ORDER BY stock_actual ASC
+        LIMIT 50
+      `;
+      
+      const { executeQuery } = require('../config/database');
+      const productos = await executeQuery(sql, [limite]);
+      return productos;
     } catch (error) {
       console.error('Error en getProductsWithLowStock:', error);
       throw error;
@@ -146,106 +161,72 @@ class ProductoService {
   }
 
   // Obtener historial de precios
-  static async getPriceHistory(productId) {
+  static async getPriceHistory(id) {
     try {
-      if (!productId || isNaN(productId)) {
-        throw new Error('ID de producto inválido');
-      }
-
-      return await ProductoRepository.getPriceHistory(productId);
+      const precios = await ProductoRepository.getPriceHistory(id);
+      return precios;
     } catch (error) {
       console.error('Error en getPriceHistory:', error);
       throw error;
     }
   }
 
-  // Actualizar precio
-  static async updatePrice(productId, priceData) {
+  // Obtener stock por producto
+  static async getStockByProduct(id) {
     try {
-      if (!productId || isNaN(productId)) {
-        throw new Error('ID de producto inválido');
-      }
+      const stock = await ProductoRepository.getStockByProduct(id);
+      return stock;
+    } catch (error) {
+      console.error('Error en getStockByProduct:', error);
+      throw error;
+    }
+  }
 
-      // Verificar que el producto existe
-      await this.getProductoById(productId);
-
-      // Validar datos del precio
-      if (!priceData.precio_venta || priceData.precio_venta <= 0) {
-        throw new Error('El precio de venta es requerido y debe ser mayor a 0');
-      }
-
-      const priceId = await ProductoRepository.createPrice({
-        id_producto: productId,
-        ...priceData
-      });
-
-      return { id: priceId };
+  // Actualizar precio
+  static async updatePrice(priceData) {
+    try {
+      const priceId = await ProductoRepository.createPrice(priceData);
+      return priceId;
     } catch (error) {
       console.error('Error en updatePrice:', error);
       throw error;
     }
   }
 
-  // Obtener stock del producto
-  static async getProductStock(productId) {
-    try {
-      if (!productId || isNaN(productId)) {
-        throw new Error('ID de producto inválido');
-      }
-
-      return await ProductoRepository.getStockByProduct(productId);
-    } catch (error) {
-      console.error('Error en getProductStock:', error);
-      throw error;
-    }
-  }
-
   // Validar datos de producto
   static validateProductoData(data) {
-    const requiredFields = ['codigo', 'nombre', 'id_categoria', 'id_unidad'];
-    
-    for (const field of requiredFields) {
-      if (!data[field]) {
-        throw new Error(`El campo ${field} es requerido`);
-      }
+    const errors = [];
+
+    if (!data.codigo || data.codigo.trim().length === 0) {
+      errors.push('El código es obligatorio');
     }
 
-    // Validar longitud de campos
-    if (data.codigo.length > 20) {
-      throw new Error('El código no puede exceder 20 caracteres');
+    if (!data.nombre || data.nombre.trim().length === 0) {
+      errors.push('El nombre es obligatorio');
     }
 
-    if (data.nombre.length > 100) {
-      throw new Error('El nombre no puede exceder 100 caracteres');
+    if (!data.id_categoria || isNaN(data.id_categoria)) {
+      errors.push('La categoría es obligatoria');
     }
 
-    // Validar valores numéricos
-    if (data.porcentaje_descuento !== undefined) {
-      const descuento = parseFloat(data.porcentaje_descuento);
-      if (isNaN(descuento) || descuento < 0 || descuento > 100) {
-        throw new Error('El porcentaje de descuento debe estar entre 0 y 100');
-      }
+    if (data.codigo && data.codigo.trim().length > 20) {
+      errors.push('El código no puede exceder 20 caracteres');
     }
 
-    if (data.stock_minimo !== undefined) {
-      const stock = parseInt(data.stock_minimo);
-      if (isNaN(stock) || stock < 0) {
-        throw new Error('El stock mínimo debe ser un número mayor o igual a 0');
-      }
+    if (data.nombre && data.nombre.trim().length > 100) {
+      errors.push('El nombre no puede exceder 100 caracteres');
     }
 
-    if (data.tiempo_duracion_anos !== undefined && data.tiempo_duracion_anos !== null) {
-      const anos = parseInt(data.tiempo_duracion_anos);
-      if (isNaN(anos) || anos < 0) {
-        throw new Error('El tiempo de duración debe ser un número mayor o igual a 0');
-      }
+    if (data.precio_venta && (isNaN(data.precio_venta) || data.precio_venta <= 0)) {
+      errors.push('El precio de venta debe ser un número positivo');
     }
 
-    if (data.extension_cobertura_m2 !== undefined && data.extension_cobertura_m2 !== null) {
-      const cobertura = parseFloat(data.extension_cobertura_m2);
-      if (isNaN(cobertura) || cobertura < 0) {
-        throw new Error('La extensión de cobertura debe ser un número mayor o igual a 0');
-      }
+    if (data.porcentaje_descuento && (isNaN(data.porcentaje_descuento) || data.porcentaje_descuento < 0 || data.porcentaje_descuento > 100)) {
+      errors.push('El porcentaje de descuento debe estar entre 0 y 100');
+    }
+
+    if (errors.length > 0) {
+      throw new Error(errors.join(', '));
     }
   }
 }
