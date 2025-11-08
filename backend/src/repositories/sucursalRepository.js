@@ -1,34 +1,27 @@
-// backend/src/repositories/sucursalRepository.js
+// backend/src/repositories/sucursalRepository.js - CORREGIDO
+
 const { executeQuery } = require('../config/database');
 
 class SucursalRepository {
-  
-  // Obtener todas las sucursales activas
-  static async findAll(page = 1, limit = 10, search = '') {
+  async findAll(page = 1, limit = 10, search = '') {
     try {
       const offset = (page - 1) * limit;
       
       let whereClause = 'WHERE estado = TRUE';
-      let searchParams = [];
-      
+      let params = [];
+
       if (search) {
-        whereClause += ' AND (nombre LIKE ? OR ciudad LIKE ? OR departamento LIKE ?)';
+        whereClause += ' AND (nombre LIKE ? OR direccion LIKE ? OR departamento LIKE ?)';
         const searchTerm = `%${search}%`;
-        searchParams = [searchTerm, searchTerm, searchTerm];
+        params.push(searchTerm, searchTerm, searchTerm);
       }
-      
-      const sqlCount = `
-        SELECT COUNT(*) as total
-        FROM sucursales
-        ${whereClause}
-      `;
-      
+
+      // QUITAMOS 'ciudad' de la consulta
       const sql = `
         SELECT 
           id_sucursal,
           nombre,
           direccion,
-          ciudad,
           departamento,
           telefono,
           latitud,
@@ -39,15 +32,25 @@ class SucursalRepository {
         ORDER BY nombre ASC
         LIMIT ? OFFSET ?
       `;
+
+      params.push(limit, offset);
+      const sucursales = await executeQuery(sql, params);
+
+      // Contar total
+      const countSql = `
+        SELECT COUNT(*) as total 
+        FROM sucursales 
+        ${whereClause.replace('LIMIT ? OFFSET ?', '')}
+      `;
       
-      const [countResult, sucursales] = await Promise.all([
-        executeQuery(sqlCount, searchParams),
-        executeQuery(sql, [...searchParams, limit, offset])
-      ]);
-      
+      const countParams = params.slice(0, -2); // Quitar limit y offset
+      const [countResult] = await executeQuery(countSql, countParams);
+
       return {
-        sucursales,
-        total: countResult[0].total
+        data: sucursales,
+        total: countResult.total,
+        page: parseInt(page),
+        limit: parseInt(limit)
       };
     } catch (error) {
       console.error('Error en findAll:', error);
@@ -55,212 +58,178 @@ class SucursalRepository {
     }
   }
 
-  // Buscar sucursal por ID
-  static async findById(id) {
+  async findById(id) {
     try {
       const sql = `
         SELECT 
           id_sucursal,
           nombre,
           direccion,
-          ciudad,
           departamento,
           telefono,
           latitud,
           longitud,
           estado
-        FROM sucursales
-        WHERE id_sucursal = ? AND estado = TRUE
+        FROM sucursales 
+        WHERE id_sucursal = ?
       `;
       
-      const result = await executeQuery(sql, [id]);
-      return result.length > 0 ? result[0] : null;
+      const [sucursal] = await executeQuery(sql, [id]);
+      return sucursal;
     } catch (error) {
       console.error('Error en findById:', error);
       throw error;
     }
   }
 
-  // Crear nueva sucursal
-  static async create(sucursalData) {
+  async create(sucursalData) {
     try {
       const sql = `
         INSERT INTO sucursales (
-          nombre, direccion, ciudad, departamento, 
-          telefono, latitud, longitud, estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)
+          nombre, direccion, departamento, telefono, 
+          latitud, longitud, estado
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
-      
-      const result = await executeQuery(sql, [
+
+      const params = [
         sucursalData.nombre,
         sucursalData.direccion,
-        sucursalData.ciudad,
         sucursalData.departamento,
-        sucursalData.telefono || null,
-        sucursalData.latitud || null,
-        sucursalData.longitud || null
-      ]);
-      
-      return result.insertId;
+        sucursalData.telefono,
+        sucursalData.latitud,
+        sucursalData.longitud,
+        sucursalData.estado !== undefined ? sucursalData.estado : true
+      ];
+
+      const result = await executeQuery(sql, params);
+      return await this.findById(result.insertId);
     } catch (error) {
       console.error('Error en create:', error);
       throw error;
     }
   }
 
-  // Actualizar sucursal
-  static async update(id, sucursalData) {
+  async update(id, sucursalData) {
     try {
       const fields = [];
-      const values = [];
-      
+      const params = [];
+
       if (sucursalData.nombre !== undefined) {
         fields.push('nombre = ?');
-        values.push(sucursalData.nombre);
+        params.push(sucursalData.nombre);
       }
-      
+
       if (sucursalData.direccion !== undefined) {
         fields.push('direccion = ?');
-        values.push(sucursalData.direccion);
+        params.push(sucursalData.direccion);
       }
-      
-      if (sucursalData.ciudad !== undefined) {
-        fields.push('ciudad = ?');
-        values.push(sucursalData.ciudad);
-      }
-      
+
       if (sucursalData.departamento !== undefined) {
         fields.push('departamento = ?');
-        values.push(sucursalData.departamento);
+        params.push(sucursalData.departamento);
       }
-      
+
       if (sucursalData.telefono !== undefined) {
         fields.push('telefono = ?');
-        values.push(sucursalData.telefono);
+        params.push(sucursalData.telefono);
       }
-      
+
       if (sucursalData.latitud !== undefined) {
         fields.push('latitud = ?');
-        values.push(sucursalData.latitud);
+        params.push(sucursalData.latitud);
       }
-      
+
       if (sucursalData.longitud !== undefined) {
         fields.push('longitud = ?');
-        values.push(sucursalData.longitud);
+        params.push(sucursalData.longitud);
       }
-      
+
+      if (sucursalData.estado !== undefined) {
+        fields.push('estado = ?');
+        params.push(sucursalData.estado);
+      }
+
       if (fields.length === 0) {
         throw new Error('No hay campos para actualizar');
       }
-      
-      values.push(id);
-      
+
       const sql = `
         UPDATE sucursales 
-        SET ${fields.join(', ')}
-        WHERE id_sucursal = ? AND estado = TRUE
+        SET ${fields.join(', ')} 
+        WHERE id_sucursal = ?
       `;
-      
-      const result = await executeQuery(sql, values);
-      return result.affectedRows > 0;
+
+      params.push(id);
+      await executeQuery(sql, params);
+
+      return await this.findById(id);
     } catch (error) {
       console.error('Error en update:', error);
       throw error;
     }
   }
 
-  // Desactivar sucursal (soft delete)
-  static async delete(id) {
+  async delete(id) {
     try {
-      const sql = `
-        UPDATE sucursales 
-        SET estado = FALSE
-        WHERE id_sucursal = ?
-      `;
-      
-      const result = await executeQuery(sql, [id]);
-      return result.affectedRows > 0;
+      const sql = 'UPDATE sucursales SET estado = FALSE WHERE id_sucursal = ?';
+      await executeQuery(sql, [id]);
+      return true;
     } catch (error) {
       console.error('Error en delete:', error);
       throw error;
     }
   }
 
-  // Verificar si existe sucursal por nombre
-  static async existsByName(nombre, excludeId = null) {
-    try {
-      let sql = `
-        SELECT COUNT(*) as count
-        FROM sucursales
-        WHERE nombre = ? AND estado = TRUE
-      `;
-      let params = [nombre];
-      
-      if (excludeId) {
-        sql += ' AND id_sucursal != ?';
-        params.push(excludeId);
-      }
-      
-      const result = await executeQuery(sql, params);
-      return result[0].count > 0;
-    } catch (error) {
-      console.error('Error en existsByName:', error);
-      throw error;
-    }
-  }
-
-  // Obtener sucursales para select/dropdown
-  static async getForSelect() {
-    try {
-      const sql = `
-        SELECT 
-          id_sucursal,
-          nombre,
-          ciudad
-        FROM sucursales
-        WHERE estado = TRUE
-        ORDER BY nombre ASC
-      `;
-      
-      return await executeQuery(sql);
-    } catch (error) {
-      console.error('Error en getForSelect:', error);
-      throw error;
-    }
-  }
-
-  // Buscar sucursal más cercana por coordenadas GPS
-  static async findNearestByCoordinates(lat, lng, limit = 3) {
+  async findNearest(lat, lng, limit = 5) {
     try {
       const sql = `
         SELECT 
           id_sucursal,
           nombre,
           direccion,
-          ciudad,
           departamento,
           telefono,
           latitud,
           longitud,
-          (6371 * acos(
-            cos(radians(?)) * cos(radians(latitud)) * 
-            cos(radians(longitud) - radians(?)) + 
-            sin(radians(?)) * sin(radians(latitud))
-          )) AS distancia_km
-        FROM sucursales
+          estado,
+          (6371 * acos(cos(radians(?)) * cos(radians(latitud)) * 
+           cos(radians(longitud) - radians(?)) + sin(radians(?)) * 
+           sin(radians(latitud)))) AS distancia
+        FROM sucursales 
         WHERE estado = TRUE 
           AND latitud IS NOT NULL 
           AND longitud IS NOT NULL
-        ORDER BY distancia_km ASC
+        ORDER BY distancia ASC
         LIMIT ?
       `;
-      
-      return await executeQuery(sql, [lat, lng, lat, limit]);
+
+      const sucursales = await executeQuery(sql, [lat, lng, lat, limit]);
+      return sucursales;
     } catch (error) {
-      console.error('Error en findNearestByCoordinates:', error);
+      console.error('Error en findNearest:', error);
+      throw error;
+    }
+  }
+
+  async getForSelect() {
+    try {
+      const sql = `
+        SELECT 
+          id_sucursal,
+          nombre,
+          departamento
+        FROM sucursales 
+        WHERE estado = TRUE
+        ORDER BY nombre ASC
+      `;
+
+      const sucursales = await executeQuery(sql);
+      return sucursales;
+    } catch (error) {
+      console.error('Error en getForSelect:', error);
       throw error;
     }
   }
 }
 
-module.exports = SucursalRepository;
+module.exports = new SucursalRepository();
