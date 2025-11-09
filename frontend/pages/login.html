@@ -5,154 +5,257 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión - Sistema Paints</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/styles.css">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         'paint-blue': '#2563eb',
-                        'paint-orange': '#f97316'
+                        'paint-green': '#059669',
+                        'paint-gray': '#6b7280'
                     }
                 }
             }
         }
     </script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
-    <!-- Header Simple -->
-    <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between py-4">
-                <div class="flex items-center space-x-3">
-                    <i class="fas fa-paint-brush text-paint-blue text-2xl"></i>
-                    <h1 class="text-xl font-bold text-gray-900">Sistema Paints</h1>
-                </div>
-                <a href="../index.html" class="text-gray-600 hover:text-paint-blue">
-                    <i class="fas fa-home mr-1"></i>Inicio
-                </a>
-            </div>
+<body class="bg-gradient-to-br from-paint-blue to-blue-800 min-h-screen flex items-center justify-center">
+    
+    <!-- Loading Overlay (hidden by default) -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-paint-blue mx-auto mb-4"></div>
+            <p class="text-gray-600">Iniciando sesión...</p>
         </div>
-    </header>
+    </div>
 
-    <!-- Main Content -->
-    <main class="flex items-center justify-center min-h-screen p-4">
-        <div class="max-w-md w-full space-y-8">
-            <!-- Login Card -->
-            <div class="bg-white rounded-lg shadow-xl p-8">
-                <div class="text-center mb-8">
-                    <div class="w-20 h-20 bg-paint-blue bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-user-lock text-paint-blue text-3xl"></i>
-                    </div>
-                    <h2 class="text-3xl font-bold text-gray-900">Iniciar Sesión</h2>
-                    <p class="text-gray-600 mt-2">Accede al sistema con tus credenciales</p>
+    <div class="w-full max-w-md mx-4">
+        <!-- Logo y Header -->
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-palette text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white mb-2">Sistema Paints</h1>
+            <p class="text-blue-100">Gestión integral de inventarios</p>
+        </div>
+
+        <!-- Card de Login -->
+        <div class="bg-white rounded-xl shadow-2xl p-8">
+            <!-- Header del formulario -->
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-paint-blue bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-user-lock text-paint-blue text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">Iniciar Sesión</h2>
+                <p class="text-gray-600 mt-2">Accede al sistema con tus credenciales</p>
+            </div>
+
+            <!-- Alert Messages Container -->
+            <div id="alertContainer" class="mb-4"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-6" autocomplete="on">
+                <!-- Username Field -->
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-user mr-2 text-paint-blue"></i>Usuario
+                    </label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        required
+                        autocomplete="username"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-paint-blue focus:border-paint-blue transition-colors duration-200 text-gray-900"
+                        placeholder="Ingresa tu usuario"
+                        maxlength="50">
+                    <div id="usernameError" class="text-red-500 text-sm mt-1 hidden"></div>
                 </div>
 
-                <!-- Alert Messages -->
-                <div id="alertMessage" class="hidden mb-4 p-4 rounded-lg"></div>
-
-                <!-- Login Form -->
-                <form id="loginForm" class="space-y-6">
-                    <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-user mr-1"></i>Usuario
-                        </label>
-                        <input type="text" 
-                               id="username" 
-                               name="username" 
-                               required
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-paint-blue focus:border-paint-blue transition-colors"
-                               placeholder="Ingresa tu usuario">
+                <!-- Password Field -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-lock mr-2 text-paint-blue"></i>Contraseña
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            required
+                            autocomplete="current-password"
+                            class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-paint-blue focus:border-paint-blue transition-colors duration-200 text-gray-900"
+                            placeholder="Ingresa tu contraseña"
+                            maxlength="100">
+                        <button 
+                            type="button" 
+                            id="togglePassword"
+                            class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 transition-colors">
+                            <i class="fas fa-eye" id="eyeIcon"></i>
+                        </button>
                     </div>
+                    <div id="passwordError" class="text-red-500 text-sm mt-1 hidden"></div>
+                </div>
 
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-lock mr-1"></i>Contraseña
+                <!-- Remember Me -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input 
+                            id="remember" 
+                            name="remember" 
+                            type="checkbox" 
+                            class="h-4 w-4 text-paint-blue focus:ring-paint-blue border-gray-300 rounded">
+                        <label for="remember" class="ml-2 block text-sm text-gray-900">
+                            Recordarme
                         </label>
-                        <div class="relative">
-                            <input type="password" 
-                                   id="password" 
-                                   name="password" 
-                                   required
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-paint-blue focus:border-paint-blue transition-colors pr-12"
-                                   placeholder="Ingresa tu contraseña">
-                            <button type="button" 
-                                    id="togglePassword"
-                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
-                                <i class="fas fa-eye" id="togglePasswordIcon"></i>
-                            </button>
-                        </div>
                     </div>
-
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <input type="checkbox" 
-                                   id="remember" 
-                                   name="remember"
-                                   class="h-4 w-4 text-paint-blue focus:ring-paint-blue border-gray-300 rounded">
-                            <label for="remember" class="ml-2 block text-sm text-gray-700">
-                                Recordarme
-                            </label>
-                        </div>
-                        <a href="#" class="text-sm text-paint-blue hover:text-blue-700">
+                    <div class="text-sm">
+                        <a href="#" class="font-medium text-paint-blue hover:text-blue-800 transition-colors">
                             ¿Olvidaste tu contraseña?
                         </a>
                     </div>
-
-                    <button type="submit" 
-                            id="loginBtn"
-                            class="w-full flex justify-center items-center px-4 py-3 bg-paint-blue text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-offset-2 focus:ring-paint-blue transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                        <span id="loginBtnText">
-                            <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesión
-                        </span>
-                        <div id="loginSpinner" class="hidden">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>Iniciando...
-                        </div>
-                    </button>
-                </form>
-
-                <!-- Demo Credentials -->
-                <div class="mt-8 p-4 bg-gray-50 rounded-lg">
-                    <h3 class="text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-info-circle mr-1"></i>Credenciales de prueba:
-                    </h3>
-                    <p class="text-sm text-gray-600">Usuario: <code class="bg-gray-200 px-1 rounded">admin</code></p>
-                    <p class="text-sm text-gray-600">Contraseña: <code class="bg-gray-200 px-1 rounded">admin123</code></p>
                 </div>
+
+                <!-- Submit Button -->
+                <button 
+                    type="submit" 
+                    id="loginButton"
+                    class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-paint-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-paint-blue transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                    
+                    <span id="loginSpinner" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" style="display: none;"></span>
+                    <i id="loginIcon" class="fas fa-sign-in-alt mr-2"></i>
+                    <span id="loginBtnText">Iniciar Sesión</span>
+                </button>
+            </form>
+
+            <!-- Información adicional -->
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-600">
+                    ¿No tienes acceso? 
+                    <span class="font-medium text-paint-blue">Contacta al administrador</span>
+                </p>
             </div>
 
-            <!-- Footer Info -->
-            <div class="text-center text-gray-600 text-sm">
-                <p>Sistema de Gestión de Pinturas</p>
-                <p>Proyecto Bases de Datos II - UMES 2024</p>
+            <!-- Demo credentials (solo para desarrollo) -->
+            <div class="mt-4 p-3 bg-gray-50 rounded-lg border">
+                <p class="text-xs font-medium text-gray-700 mb-1">Credenciales de prueba:</p>
+                <p class="text-xs text-gray-600">Usuario: <code class="bg-white px-1 rounded">admin</code></p>
+                <p class="text-xs text-gray-600">Contraseña: <code class="bg-white px-1 rounded">admin123</code></p>
             </div>
         </div>
-    </main>
+
+        <!-- Footer -->
+        <div class="text-center mt-8">
+            <p class="text-blue-100 text-sm">
+                © 2024 Sistema Paints - Proyecto UMES
+            </p>
+        </div>
+    </div>
 
     <!-- Scripts -->
+    <!-- ORDEN IMPORTANTE: utils.js debe cargarse primero -->
+    <script src="../assets/js/utils.js"></script>
     <script src="../assets/js/api.js"></script>
     <script src="../assets/js/auth.js"></script>
+
     <script>
-        // Toggle password visibility
-        document.getElementById('togglePassword').addEventListener('click', function() {
-            const passwordInput = document.getElementById('password');
-            const icon = document.getElementById('togglePasswordIcon');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                icon.className = 'fas fa-eye-slash';
-            } else {
-                passwordInput.type = 'password';
-                icon.className = 'fas fa-eye';
+        // Script específico de la página de login
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔄 Página de login cargada');
+
+            // Toggle password visibility
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordField = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+
+            togglePassword.addEventListener('click', function() {
+                const type = passwordField.type === 'password' ? 'text' : 'password';
+                passwordField.type = type;
+                
+                eyeIcon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+            });
+
+            // Validación en tiempo real
+            const usernameField = document.getElementById('username');
+            const usernameError = document.getElementById('usernameError');
+            const passwordError = document.getElementById('passwordError');
+
+            usernameField.addEventListener('blur', function() {
+                const value = this.value.trim();
+                if (!value) {
+                    showFieldError('username', 'El usuario es requerido');
+                } else if (value.length < 3) {
+                    showFieldError('username', 'El usuario debe tener al menos 3 caracteres');
+                } else {
+                    hideFieldError('username');
+                }
+            });
+
+            passwordField.addEventListener('blur', function() {
+                const value = this.value;
+                if (!value) {
+                    showFieldError('password', 'La contraseña es requerida');
+                } else if (value.length < 3) {
+                    showFieldError('password', 'La contraseña debe tener al menos 3 caracteres');
+                } else {
+                    hideFieldError('password');
+                }
+            });
+
+            // Auto-focus en el campo de usuario
+            usernameField.focus();
+
+            // Función para mostrar error en campo específico
+            function showFieldError(fieldName, message) {
+                const field = document.getElementById(fieldName);
+                const errorDiv = document.getElementById(fieldName + 'Error');
+                
+                field.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
+                field.classList.remove('border-gray-300', 'focus:border-paint-blue', 'focus:ring-paint-blue');
+                
+                errorDiv.textContent = message;
+                errorDiv.classList.remove('hidden');
             }
+
+            // Función para ocultar error en campo específico
+            function hideFieldError(fieldName) {
+                const field = document.getElementById(fieldName);
+                const errorDiv = document.getElementById(fieldName + 'Error');
+                
+                field.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
+                field.classList.add('border-gray-300', 'focus:border-paint-blue', 'focus:ring-paint-blue');
+                
+                errorDiv.classList.add('hidden');
+            }
+
+            // Demo: Auto-fill con credenciales de prueba (solo desarrollo)
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                const demoCredentials = document.querySelector('.bg-gray-50');
+                if (demoCredentials) {
+                    demoCredentials.addEventListener('click', function() {
+                        usernameField.value = 'admin';
+                        passwordField.value = 'admin123';
+                        hideFieldError('username');
+                        hideFieldError('password');
+                    });
+                    demoCredentials.style.cursor = 'pointer';
+                    demoCredentials.title = 'Click para auto-completar';
+                }
+            }
+
+            console.log('✅ Scripts de login inicializados');
         });
 
-        // Auto-fill demo credentials
-        document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('demo') === 'true') {
-                document.getElementById('username').value = 'admin';
-                document.getElementById('password').value = 'admin123';
+        // Manejar Enter para enviar formulario
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                const form = document.getElementById('loginForm');
+                if (form && document.activeElement && form.contains(document.activeElement)) {
+                    e.preventDefault();
+                    form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
             }
         });
     </script>
