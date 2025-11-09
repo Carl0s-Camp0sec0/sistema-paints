@@ -1,20 +1,21 @@
-// backend/src/controllers/authController.js - CORREGIDO PARA LOGOUT
-const bcrypt = require('bcrypt');
+// backend/src/controllers/authController.js - COMPLETO Y FUNCIONAL
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { executeQuery } = require('../config/database');
-const { jwtConfig, cookieConfig } = require('../config/jwt');
 const { responseSuccess, responseError } = require('../utils/responses');
 
 class AuthController {
   
-  // Método de login
+  // Método de login - CORREGIDO COMPLETAMENTE
   static async login(req, res) {
     try {
       const { username, password } = req.body;
 
+      console.log('🔐 Intento de login para usuario:', username);
+
       // Validar entrada
       if (!username || !password) {
+        console.log('❌ Faltan credenciales');
         return responseError(res, 'Usuario y contraseña son requeridos', 400);
       }
 
@@ -29,21 +30,35 @@ class AuthController {
           u.nombre_completo,
           u.email,
           u.estado,
+          u.intentos_login,
           e.id_sucursal,
           s.nombre as sucursal_nombre
         FROM usuarios u
         LEFT JOIN empleados e ON u.id_empleado = e.id_empleado  
         LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
-        WHERE u.username = ? AND u.estado = 1
+        WHERE u.username = ?
       `;
 
       const usuarios = await executeQuery(query, [username]);
 
       if (usuarios.length === 0) {
-        return responseError(res, 'Usuario no encontrado o inactivo', 401);
+        console.log('❌ Usuario no encontrado:', username);
+        return responseError(res, 'Credenciales inválidas', 401);
       }
 
       const usuario = usuarios[0];
+
+      // Verificar estado del usuario
+      if (usuario.estado !== 1) {
+        console.log('❌ Usuario inactivo:', username);
+        return responseError(res, 'Cuenta desactivada. Contacta al administrador.', 401);
+      }
+
+      // Verificar si la cuenta está bloqueada
+      if (usuario.intentos_login >= 5) {
+        console.log('❌ Cuenta bloqueada por intentos:', username);
+        return responseError(res, 'Cuenta bloqueada por múltiples intentos fallidos. Contacta al administrador.', 401);
+      }
 
       // Verificar contraseña usando el método de hash de tu BD
       const passwordToVerify = crypto
@@ -52,62 +67,85 @@ class AuthController {
         .digest('hex');
 
       if (passwordToVerify !== usuario.password_hash) {
-        return responseError(res, 'Contraseña incorrecta', 401);
+        console.log('❌ Contraseña incorrecta para usuario:', username);
+        
+        // Incrementar intentos fallidos
+        await executeQuery(
+          'UPDATE usuarios SET intentos_login = intentos_login + 1 WHERE id_usuario = ?',
+          [usuario.id_usuario]
+        );
+        
+        return responseError(res, 'Credenciales inválidas', 401);
       }
 
-      // Generar JWT token
-      const tokenPayload = {
-        id: usuario.id_usuario,
-        id_usuario: usuario.id_usuario,
-        username: usuario.username,
-        nombre: usuario.nombre_completo,
-        nombre_completo: usuario.nombre_completo,
-        email: usuario.email,
-        rol: usuario.rol,
-        perfil_usuario: usuario.rol,
-        id_sucursal: usuario.id_sucursal,
-        sucursal: usuario.sucursal_nombre
-      };
+      console.log('✅ Credenciales válidas para usuario:', username);
 
-      const token = jwt.sign(tokenPayload, jwtConfig.secret, {
-        expiresIn: jwtConfig.expiresIn,
-        issuer: jwtConfig.issuer,
-        audience: jwtConfig.audience
-      });
-
-      // Actualizar último acceso
+      // Reset intentos de login exitoso
       await executeQuery(
-        'UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = ?',
+        'UPDATE usuarios SET intentos_login = 0, ultimo_acceso = NOW() WHERE id_usuario = ?',
         [usuario.id_usuario]
       );
 
-      // Configurar cookie
-      res.cookie('authToken', token, cookieConfig);
+      // Crear payload del token - ESTRUCTURA CORRECTA
+      const tokenPayload = {
+        userId: usuario.id_usuario, // Para el middleware de auth
+        id_usuario: usuario.id_usuario,
+        username: usuario.username,
+        rol: usuario.rol,
+        perfil_usuario: usuario.rol
+      };
 
-      // Respuesta de éxito
+      // Generar JWT token
+      const token = jwt.sign(
+        tokenPayload,
+        process.env.JWT_SECRET || 'paints_system_secret_key_2024_very_secure',
+        { 
+          expiresIn: '24h',
+          issuer: 'sistema-paints'
+        }
+      );
+
+      // Datos del usuario para el frontend - ESTRUCTURA CORRECTA
+      const userData = {
+        id_usuario: usuario.id_usuario,
+        id: usuario.id_usuario,
+        username: usuario.username,
+        nombre_completo: usuario.nombre_completo,
+        email: usuario.email,
+        perfil_usuario: usuario.rol,
+        perfil: usuario.rol,
+        id_sucursal: usuario.id_sucursal,
+        sucursal: usuario.sucursal_nombre || 'Sin asignar',
+        ultimo_acceso: usuario.ultimo_acceso
+      };
+
+      console.log('✅ Login exitoso, enviando respuesta...');
+
+      // Configurar cookie de autenticación
+      res.cookie('authToken', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24 horas
+        path: '/'
+      });
+
+      // Respuesta de éxito con estructura esperada por el frontend
       return responseSuccess(res, 'Inicio de sesión exitoso', {
-        user: {
-          id: usuario.id_usuario,
-          username: usuario.username,
-          nombre: usuario.nombre_completo,
-          email: usuario.email,
-          rol: usuario.rol,
-          id_sucursal: usuario.id_sucursal,
-          sucursal: usuario.sucursal_nombre
-        },
-        token
+        user: userData,
+        token: token
       });
 
     } catch (error) {
-      console.error('Error en login:', error);
+      console.error('❌ Error interno en login:', error);
       return responseError(res, 'Error interno del servidor', 500);
     }
   }
 
-  // Método de logout corregido
+  // Método de logout
   static async logout(req, res) {
     try {
-      // Limpiar cookie de autenticación
+      // Limpiar cookies
       res.clearCookie('authToken', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -115,23 +153,12 @@ class AuthController {
         path: '/'
       });
 
-      // También limpiar cualquier otra cookie relacionada
-      res.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', 
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        path: '/'
-      });
+      console.log('✅ Usuario cerró sesión exitosamente');
 
-      console.log('Usuario cerró sesión exitosamente');
-
-      return responseSuccess(res, 'Sesión cerrada exitosamente', {
-        redirectUrl: '/pages/login.html',
-        message: 'Redirigiendo al login...'
-      });
+      return responseSuccess(res, 'Sesión cerrada exitosamente');
 
     } catch (error) {
-      console.error('Error en logout:', error);
+      console.error('❌ Error en logout:', error);
       return responseError(res, 'Error al cerrar sesión', 500);
     }
   }
@@ -154,8 +181,7 @@ class AuthController {
           u.ultimo_acceso,
           u.fecha_creacion,
           e.id_sucursal,
-          s.nombre as sucursal_nombre,
-          s.direccion as sucursal_direccion
+          s.nombre as sucursal_nombre
         FROM usuarios u
         LEFT JOIN empleados e ON u.id_empleado = e.id_empleado
         LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
@@ -171,24 +197,17 @@ class AuthController {
       const userProfile = usuarios[0];
 
       return responseSuccess(res, 'Perfil obtenido exitosamente', {
-        user: {
-          id: userProfile.id_usuario,
-          username: userProfile.username,
-          nombre: userProfile.nombre_completo,
-          email: userProfile.email,
-          rol: userProfile.rol,
-          ultimo_acceso: userProfile.ultimo_acceso,
-          fecha_creacion: userProfile.fecha_creacion,
-          sucursal: {
-            id: userProfile.id_sucursal,
-            nombre: userProfile.sucursal_nombre,
-            direccion: userProfile.sucursal_direccion
-          }
-        }
+        id_usuario: userProfile.id_usuario,
+        username: userProfile.username,
+        nombre_completo: userProfile.nombre_completo,
+        email: userProfile.email,
+        perfil_usuario: userProfile.rol,
+        ultimo_acceso: userProfile.ultimo_acceso,
+        sucursal: userProfile.sucursal_nombre
       });
 
     } catch (error) {
-      console.error('Error en getProfile:', error);
+      console.error('❌ Error en getProfile:', error);
       return responseError(res, 'Error al obtener perfil', 500);
     }
   }
@@ -211,30 +230,27 @@ class AuthController {
         return responseError(res, 'No hay token presente', 401);
       }
 
-      jwt.verify(token, jwtConfig.secret, (err, decoded) => {
-        if (err) {
-          if (err.name === 'TokenExpiredError') {
-            return responseError(res, 'Token expirado', 401);
-          } else if (err.name === 'JsonWebTokenError') {
-            return responseError(res, 'Token inválido', 401);
-          } else {
-            return responseError(res, 'Error de verificación', 401);
-          }
-        }
-
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'paints_system_secret_key_2024_very_secure');
+        
         return responseSuccess(res, 'Token válido', {
           user: {
             id: decoded.id_usuario,
             username: decoded.username,
-            nombre: decoded.nombre_completo,
-            rol: decoded.perfil_usuario
+            rol: decoded.rol
           },
-          expires_in: decoded.exp
+          expires: decoded.exp
         });
-      });
+      } catch (jwtError) {
+        if (jwtError.name === 'TokenExpiredError') {
+          return responseError(res, 'Token expirado', 401);
+        } else {
+          return responseError(res, 'Token inválido', 401);
+        }
+      }
 
     } catch (error) {
-      console.error('Error en verifyToken:', error);
+      console.error('❌ Error en verifyToken:', error);
       return responseError(res, 'Error al verificar token', 500);
     }
   }
@@ -278,23 +294,22 @@ class AuthController {
         return responseError(res, 'Contraseña actual incorrecta', 400);
       }
 
-      // Generar nuevo hash
-      const newSalt = 'salt_' + Date.now();
+      // Generar hash para nueva contraseña
       const newPasswordHash = crypto
         .createHash('sha256')
-        .update(newPassword + newSalt)
+        .update(newPassword + usuario.salt)
         .digest('hex');
 
       // Actualizar contraseña
       await executeQuery(
-        'UPDATE usuarios SET password_hash = ?, salt = ? WHERE id_usuario = ?',
-        [newPasswordHash, newSalt, req.user.id]
+        'UPDATE usuarios SET password_hash = ? WHERE id_usuario = ?',
+        [newPasswordHash, req.user.id]
       );
 
       return responseSuccess(res, 'Contraseña cambiada exitosamente');
 
     } catch (error) {
-      console.error('Error en changePassword:', error);
+      console.error('❌ Error en changePassword:', error);
       return responseError(res, 'Error al cambiar contraseña', 500);
     }
   }
