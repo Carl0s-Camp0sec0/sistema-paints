@@ -1,4 +1,4 @@
-// backend/src/controllers/productoController.js - VERSIÓN COMPLETA CORREGIDA
+// backend/src/controllers/productoController.js - VERSIÓN CORREGIDA PARA TU BD ACTUAL
 const ProductoRepository = require('../repositories/productoRepository');
 const { responseSuccess, responseError } = require('../utils/responses');
 

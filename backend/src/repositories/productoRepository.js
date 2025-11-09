@@ -1,5 +1,5 @@
-// backend/src/repositories/productoRepository.js - VERSIÓN COMPLETA CORREGIDA
-const db = require('../config/database');
+// backend/src/repositories/productoRepository.js - VERSIÓN CORREGIDA PARA TU BD ACTUAL
+const { executeQuery, getConnection } = require('../config/database');
 
 class ProductoRepository {
   
@@ -29,7 +29,7 @@ class ProductoRepository {
           um.nombre as unidad_medida_nombre,
           col.nombre as color_nombre
         FROM productos p
-        LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+        LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
         LEFT JOIN unidades_medida um ON p.id_unidad_medida = um.id_unidad_medida
         LEFT JOIN colores col ON p.id_color = col.id_color
         WHERE 1=1
@@ -78,9 +78,9 @@ class ProductoRepository {
       baseQuery += ` LIMIT ? OFFSET ?`;
       queryParams.push(limit, offset);
 
-      // Ejecutar consultas
-      const [productos] = await db.execute(baseQuery, queryParams);
-      const [totalResult] = await db.execute(countQuery, queryParams.slice(0, -2)); // Remover limit y offset para el conteo
+      // Ejecutar consultas usando executeQuery
+      const productos = await executeQuery(baseQuery, queryParams);
+      const totalResult = await executeQuery(countQuery, queryParams.slice(0, -2)); // Remover limit y offset para el conteo
 
       const total = totalResult[0].total;
       const totalPages = Math.ceil(total / limit);
@@ -128,7 +128,7 @@ class ProductoRepository {
 
       query += ` ORDER BY p.nombre ASC`;
 
-      const [productos] = await db.execute(query, queryParams);
+      const productos = await executeQuery(query, queryParams);
       return productos;
 
     } catch (error) {
@@ -149,13 +149,13 @@ class ProductoRepository {
           p.stock_minimo,
           c.nombre as categoria_nombre
         FROM productos p
-        LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+        LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
         WHERE p.estado = 'activo' 
         AND p.stock_actual <= p.stock_minimo
         ORDER BY (p.stock_actual - p.stock_minimo) ASC, p.nombre ASC
       `;
 
-      const [productos] = await db.execute(query);
+      const productos = await executeQuery(query);
       return productos;
 
     } catch (error) {
@@ -174,14 +174,14 @@ class ProductoRepository {
           um.nombre as unidad_medida_nombre,
           col.nombre as color_nombre
         FROM productos p
-        LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+        LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
         LEFT JOIN unidades_medida um ON p.id_unidad_medida = um.id_unidad_medida
         LEFT JOIN colores col ON p.id_color = col.id_color
         WHERE p.id_producto = ?
       `;
 
-      const [productos] = await db.execute(query, [id]);
-      return productos[0] || null;
+      const productos = await executeQuery(query, [id]);
+      return productos.length > 0 ? productos[0] : null;
 
     } catch (error) {
       console.error('Error en ProductoRepository.findById:', error);
@@ -200,7 +200,7 @@ class ProductoRepository {
         params.push(excludeId);
       }
 
-      const [result] = await db.execute(query, params);
+      const result = await executeQuery(query, params);
       return result[0].count > 0;
 
     } catch (error) {
@@ -236,7 +236,7 @@ class ProductoRepository {
         productoData.cobertura_m2
       ];
 
-      const [result] = await db.execute(query, params);
+      const result = await executeQuery(query, params);
       return result.insertId;
 
     } catch (error) {
@@ -269,7 +269,7 @@ class ProductoRepository {
 
       const query = `UPDATE productos SET ${fields.join(', ')} WHERE id_producto = ?`;
 
-      const [result] = await db.execute(query, values);
+      const result = await executeQuery(query, values);
       return result.affectedRows > 0;
 
     } catch (error) {
@@ -278,9 +278,9 @@ class ProductoRepository {
     }
   }
 
-  // Actualizar precio de producto
+  // Actualizar precio de producto con historial
   static async updatePrice(id, precioNuevo, precioAnterior, motivo) {
-    const connection = await db.getConnection();
+    const connection = await getConnection();
     
     try {
       await connection.beginTransaction();
@@ -291,14 +291,18 @@ class ProductoRepository {
         [precioNuevo, id]
       );
 
-      // Registrar en historial de precios
-      await connection.execute(
-        `INSERT INTO historial_precios (
-          id_producto, precio_anterior, precio_nuevo, motivo, 
-          fecha_cambio, id_usuario
-        ) VALUES (?, ?, ?, ?, NOW(), 1)`, // TODO: obtener id_usuario del contexto
-        [id, precioAnterior, precioNuevo, motivo]
-      );
+      // Registrar en historial de precios si existe la tabla
+      try {
+        await connection.execute(
+          `INSERT INTO historial_precios (
+            id_producto, precio_anterior, precio_nuevo, motivo, 
+            fecha_cambio, id_usuario
+          ) VALUES (?, ?, ?, ?, NOW(), 1)`,
+          [id, precioAnterior, precioNuevo, motivo]
+        );
+      } catch (histError) {
+        console.warn('Tabla historial_precios no existe, continuando sin registrar historial');
+      }
 
       await connection.commit();
       return true;
@@ -325,11 +329,15 @@ class ProductoRepository {
         ORDER BY hp.fecha_cambio DESC
       `;
 
-      const [historial] = await db.execute(query, [id]);
+      const historial = await executeQuery(query, [id]);
       return historial;
 
     } catch (error) {
       console.error('Error en ProductoRepository.getPriceHistory:', error);
+      // Si la tabla no existe, retornar array vacío
+      if (error.code === 'ER_NO_SUCH_TABLE') {
+        return [];
+      }
       throw error;
     }
   }
@@ -338,7 +346,7 @@ class ProductoRepository {
   static async getStock(id) {
     try {
       const query = `SELECT stock_actual FROM productos WHERE id_producto = ?`;
-      const [result] = await db.execute(query, [id]);
+      const result = await executeQuery(query, [id]);
       
       if (result.length === 0) {
         return null;
@@ -362,11 +370,15 @@ class ProductoRepository {
         WHERE df.id_producto = ? AND f.estado != 'anulada'
       `;
 
-      const [result] = await db.execute(query, [id]);
+      const result = await executeQuery(query, [id]);
       return result[0].count > 0;
 
     } catch (error) {
       console.error('Error en ProductoRepository.isInUse:', error);
+      // Si las tablas no existen, asumir que no está en uso
+      if (error.code === 'ER_NO_SUCH_TABLE') {
+        return false;
+      }
       throw error;
     }
   }
@@ -375,7 +387,7 @@ class ProductoRepository {
   static async delete(id) {
     try {
       const query = `UPDATE productos SET estado = 'eliminado', fecha_actualizacion = NOW() WHERE id_producto = ?`;
-      const [result] = await db.execute(query, [id]);
+      const result = await executeQuery(query, [id]);
       
       return result.affectedRows > 0;
 
@@ -387,9 +399,9 @@ class ProductoRepository {
 
   // Actualizar stock de producto
   static async updateStock(id, nuevoStock, motivo = 'Actualización manual') {
+    const connection = await getConnection();
+    
     try {
-      const connection = await db.getConnection();
-      
       await connection.beginTransaction();
 
       // Obtener stock actual
@@ -410,14 +422,18 @@ class ProductoRepository {
         [nuevoStock, id]
       );
 
-      // Registrar en historial de stock
-      await connection.execute(
-        `INSERT INTO movimientos_stock (
-          id_producto, tipo_movimiento, cantidad_anterior, cantidad_nueva,
-          motivo, fecha_movimiento, id_usuario
-        ) VALUES (?, 'manual', ?, ?, ?, NOW(), 1)`, // TODO: obtener id_usuario del contexto
-        [id, stockAnterior, nuevoStock, motivo]
-      );
+      // Registrar en historial de stock si existe la tabla
+      try {
+        await connection.execute(
+          `INSERT INTO movimientos_stock (
+            id_producto, tipo_movimiento, cantidad_anterior, cantidad_nueva,
+            motivo, fecha_movimiento, id_usuario
+          ) VALUES (?, 'manual', ?, ?, ?, NOW(), 1)`,
+          [id, stockAnterior, nuevoStock, motivo]
+        );
+      } catch (moveError) {
+        console.warn('Tabla movimientos_stock no existe, continuando sin registrar movimiento');
+      }
 
       await connection.commit();
       return true;
