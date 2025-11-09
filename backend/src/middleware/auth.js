@@ -1,10 +1,10 @@
-// backend/src/middleware/auth.js - VERSIÓN CORREGIDA COMPLETA
+// backend/src/middleware/auth.js - VERSIÓN FINAL CORREGIDA PARA TU ESTRUCTURA
 const jwt = require('jsonwebtoken');
 const { executeQuery } = require('../config/database');
 const { responseError } = require('../utils/responses');
 
 /**
- * Middleware para autenticar token JWT - CORREGIDO
+ * Middleware para autenticar token JWT - CORREGIDO CON RELACIÓN CORRECTA
  */
 async function authenticateToken(req, res, next) {
   try {
@@ -38,13 +38,13 @@ async function authenticateToken(req, res, next) {
         u.perfil_usuario,
         u.estado,
         u.nombre_completo,
-        COALESCE(e.id_empleado, NULL) as id_empleado,
+        u.id_empleado,
         COALESCE(e.nombres, '') as nombres,
         COALESCE(e.apellidos, '') as apellidos,
         COALESCE(e.id_sucursal, NULL) as id_sucursal,
         COALESCE(s.nombre, 'Sin sucursal') as sucursal_nombre
       FROM usuarios u
-      LEFT JOIN empleados e ON u.id_usuario = e.id_usuario
+      LEFT JOIN empleados e ON u.id_empleado = e.id_empleado
       LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
       WHERE u.id_usuario = ?
         AND u.estado = 1

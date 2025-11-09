@@ -1,14 +1,13 @@
-// backend/src/controllers/authController.js - VERSIÓN CORREGIDA COMPLETA
+// backend/src/controllers/authController.js - VERSIÓN FINAL SIN ERRORES
 const { responseSuccess, responseError } = require('../utils/responses');
 const { executeQuery } = require('../config/database');
 const { generateToken } = require('../middleware/auth');
-const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
 class AuthController {
   
   /**
-   * Login de usuario - CORREGIDO
+   * Login de usuario - CORREGIDO SIN ERROR DE THIS
    */
   static async login(req, res) {
     try {
@@ -19,7 +18,7 @@ class AuthController {
         return responseError(res, 'Username y password son requeridos', 400);
       }
 
-      // Buscar usuario en base de datos
+      // Buscar usuario en base de datos - CONSULTA CORREGIDA
       const userQuery = `
         SELECT 
           u.id_usuario,
@@ -30,13 +29,13 @@ class AuthController {
           u.estado,
           u.intentos_login,
           u.nombre_completo,
-          COALESCE(e.id_empleado, NULL) as id_empleado,
+          u.id_empleado,
           COALESCE(e.nombres, '') as nombres,
           COALESCE(e.apellidos, '') as apellidos,
           COALESCE(e.id_sucursal, NULL) as id_sucursal,
           COALESCE(s.nombre, 'Sin sucursal') as sucursal_nombre
         FROM usuarios u
-        LEFT JOIN empleados e ON u.id_usuario = e.id_usuario  
+        LEFT JOIN empleados e ON u.id_empleado = e.id_empleado
         LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
         WHERE u.username = ?
       `;
@@ -59,8 +58,8 @@ class AuthController {
         return responseError(res, 'Cuenta bloqueada por múltiples intentos fallidos. Contacte al administrador.', 423);
       }
 
-      // Verificar contraseña
-      const isValidPassword = await this.verifyPassword(password, user.salt, user.password_hash);
+      // Verificar contraseña - CORRECCIÓN: usar AuthController.verifyPassword
+      const isValidPassword = await AuthController.verifyPassword(password, user.salt, user.password_hash);
       
       if (!isValidPassword) {
         // Incrementar intentos fallidos
@@ -115,7 +114,7 @@ class AuthController {
   }
 
   /**
-   * Obtener perfil del usuario autenticado
+   * Obtener perfil del usuario autenticado - CORREGIDO
    */
   static async getProfile(req, res) {
     try {
@@ -125,7 +124,7 @@ class AuthController {
         return responseError(res, 'Usuario no autenticado', 401);
       }
 
-      // Obtener información completa del usuario
+      // Obtener información completa del usuario - CONSULTA CORREGIDA
       const userQuery = `
         SELECT 
           u.id_usuario,
@@ -134,7 +133,7 @@ class AuthController {
           u.nombre_completo,
           u.email,
           u.ultimo_acceso,
-          COALESCE(e.id_empleado, NULL) as id_empleado,
+          u.id_empleado,
           COALESCE(e.nombres, '') as nombres,
           COALESCE(e.apellidos, '') as apellidos,
           COALESCE(e.telefono, '') as telefono,
@@ -142,7 +141,7 @@ class AuthController {
           COALESCE(s.nombre, 'Sin sucursal') as sucursal_nombre,
           COALESCE(s.direccion, '') as sucursal_direccion
         FROM usuarios u
-        LEFT JOIN empleados e ON u.id_usuario = e.id_usuario
+        LEFT JOIN empleados e ON u.id_empleado = e.id_empleado
         LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
         WHERE u.id_usuario = ?
       `;
@@ -225,7 +224,7 @@ class AuthController {
   }
 
   /**
-   * Verificar contraseña con SHA256 + salt
+   * Verificar contraseña con SHA256 + salt - MÉTODO ESTÁTICO CORREGIDO
    */
   static async verifyPassword(password, salt, hash) {
     try {
@@ -233,6 +232,13 @@ class AuthController {
       const hasher = crypto.createHash('sha256');
       hasher.update(password + salt);
       const computedHash = hasher.digest('hex');
+      
+      console.log('🔐 Verificando contraseña:');
+      console.log('   Password:', password);
+      console.log('   Salt:', salt);
+      console.log('   Hash esperado:', hash);
+      console.log('   Hash calculado:', computedHash);
+      console.log('   ¿Coinciden?', computedHash === hash);
       
       // Comparar con el hash almacenado
       return computedHash === hash;
@@ -269,8 +275,8 @@ class AuthController {
 
       const user = users[0];
 
-      // Verificar contraseña actual
-      const isCurrentPasswordValid = await this.verifyPassword(currentPassword, user.salt, user.password_hash);
+      // Verificar contraseña actual - CORRECCIÓN: usar AuthController.verifyPassword
+      const isCurrentPasswordValid = await AuthController.verifyPassword(currentPassword, user.salt, user.password_hash);
       
       if (!isCurrentPasswordValid) {
         return responseError(res, 'Contraseña actual incorrecta', 400);
@@ -293,6 +299,46 @@ class AuthController {
     } catch (error) {
       console.error('Error en changePassword:', error);
       return responseError(res, 'Error al cambiar contraseña', 500);
+    }
+  }
+
+  /**
+   * Obtener información básica del sistema para el dashboard
+   */
+  static async getDashboardInfo(req, res) {
+    try {
+      const user = req.user;
+
+      if (!user) {
+        return responseError(res, 'Usuario no autenticado', 401);
+      }
+
+      // Obtener contadores básicos
+      const dashboardQuery = `
+        SELECT 
+          (SELECT COUNT(*) FROM sucursales WHERE estado = 'Activo') as total_sucursales,
+          (SELECT COUNT(*) FROM categorias_productos WHERE estado = 'Activo') as total_categorias,
+          (SELECT COUNT(*) FROM productos WHERE estado = 'Activo') as total_productos,
+          (SELECT COUNT(*) FROM clientes WHERE estado = 'Activo') as total_clientes,
+          (SELECT COUNT(*) FROM empleados WHERE estado = 'Activo') as total_empleados
+      `;
+
+      const dashboard = await executeQuery(dashboardQuery);
+
+      return responseSuccess(res, 'Información del dashboard obtenida exitosamente', {
+        user: {
+          id: user.id_usuario,
+          username: user.username,
+          perfil: user.perfil_usuario,
+          nombre_completo: user.nombre_completo,
+          sucursal: user.sucursal_nombre
+        },
+        statistics: dashboard[0]
+      });
+
+    } catch (error) {
+      console.error('Error en getDashboardInfo:', error);
+      return responseError(res, 'Error al obtener información del dashboard', 500);
     }
   }
 }
