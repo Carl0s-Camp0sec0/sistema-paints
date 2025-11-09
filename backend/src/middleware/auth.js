@@ -1,4 +1,4 @@
-// backend/src/middlewares/auth.js - CORREGIDO
+// backend/src/middleware/auth.js - BUG DE ROLES CORREGIDO
 const jwt = require('jsonwebtoken');
 const { executeQuery } = require('../config/database');
 
@@ -81,9 +81,6 @@ const authenticateToken = async (req, res, next) => {
 
     console.log(`Usuario autenticado: ${usuario.username} Rol: ${usuario.rol}`);
 
-    // Actualizar último acceso (opcional, puede ser pesado en muchas requests)
-    // await executeQuery('UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = ?', [usuario.id_usuario]);
-
     next();
 
   } catch (error) {
@@ -97,7 +94,7 @@ const authenticateToken = async (req, res, next) => {
 };
 
 /**
- * Middleware de autorización por rol
+ * Middleware de autorización por rol - CORREGIDO
  * Verifica que el usuario tenga los permisos necesarios
  */
 const authorizeRoles = (...roles) => {
@@ -110,18 +107,24 @@ const authorizeRoles = (...roles) => {
       });
     }
 
-    if (!roles.includes(req.user.rol)) {
-      console.log(`❌ Acceso denegado. Usuario ${req.user.username} con rol ${req.user.rol} intentó acceder a recurso que requiere: ${roles.join(', ')}`);
+    // CORRECCIÓN: Verificación de roles mejorada
+    const userRole = req.user.rol;
+    const hasPermission = roles.includes(userRole);
+
+    console.log(`🔍 Verificando permisos: Usuario ${req.user.username} (${userRole}) - Requeridos: [${roles.join(', ')}] - Permitido: ${hasPermission}`);
+
+    if (!hasPermission) {
+      console.log(`❌ Acceso denegado. Usuario ${req.user.username} con rol ${userRole} intentó acceder a recurso que requiere: ${roles.join(', ')}`);
       return res.status(403).json({
         success: false,
         message: `Acceso denegado. Se requiere uno de los siguientes roles: ${roles.join(', ')}`,
         code: 'INSUFFICIENT_PERMISSIONS',
         required_roles: roles,
-        user_role: req.user.rol
+        user_role: userRole
       });
     }
 
-    console.log(`✅ Acceso autorizado para ${req.user.username} (${req.user.rol})`);
+    console.log(`✅ Acceso autorizado para ${req.user.username} (${userRole})`);
     next();
   };
 };
