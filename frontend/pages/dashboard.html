@@ -6,551 +6,393 @@
     <title>Dashboard - Sistema Paints</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="../assets/css/styles.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'paint-blue': '#2563eb',
-                        'paint-green': '#059669',
-                        'paint-gray': '#6b7280'
-                    }
-                }
-            }
-        }
-    </script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-100">
+    <!-- Navegación se inyecta automáticamente -->
     
-    <!-- Navigation Header -->
-    <header class="bg-white shadow-sm border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Logo y Título -->
+    <!-- Contenido principal -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Encabezado -->
+        <div class="px-4 py-6 sm:px-0">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">Dashboard Principal</h1>
+                <p class="mt-2 text-lg text-gray-600">Resumen general del Sistema Paints</p>
+            </div>
+
+            <!-- Mensaje de bienvenida -->
+            <div id="welcome-message" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <div class="flex items-center">
-                    <div class="flex-shrink-0 flex items-center">
-                        <i class="fas fa-palette text-paint-blue text-2xl mr-3"></i>
-                        <h1 class="text-xl font-bold text-gray-900">Sistema Paints</h1>
+                    <i class="fas fa-info-circle text-blue-500 mr-3"></i>
+                    <div>
+                        <h3 class="text-sm font-medium text-blue-800">Bienvenido al sistema</h3>
+                        <p class="text-sm text-blue-700">Cargando información del usuario...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estadísticas principales -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Card Sucursales -->
+                <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-store text-2xl text-blue-600"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Sucursales</dt>
+                                    <dd class="text-lg font-medium text-gray-900" id="total-sucursales">-</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3">
+                        <div class="text-sm">
+                            <a href="/pages/sucursales.html" class="font-medium text-blue-600 hover:text-blue-500">
+                                Ver todas <span aria-hidden="true">&rarr;</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Navigation Menu -->
-                <nav class="hidden md:flex space-x-8">
-                    <a href="dashboard.html" class="text-paint-blue border-b-2 border-paint-blue px-1 pb-4 text-sm font-medium">
-                        Dashboard
-                    </a>
-                    <a href="sucursales.html" class="text-gray-500 hover:text-gray-700 px-1 pb-4 text-sm font-medium transition-colors">
-                        Sucursales
-                    </a>
-                    <a href="categorias.html" class="text-gray-500 hover:text-gray-700 px-1 pb-4 text-sm font-medium transition-colors">
-                        Categorías
-                    </a>
-                    <a href="productos.html" class="text-gray-500 hover:text-gray-700 px-1 pb-4 text-sm font-medium transition-colors">
-                        Productos
-                    </a>
-                    <a href="clientes.html" class="text-gray-500 hover:text-gray-700 px-1 pb-4 text-sm font-medium transition-colors">
-                        Clientes
-                    </a>
-                    <a href="facturacion.html" class="text-gray-500 hover:text-gray-700 px-1 pb-4 text-sm font-medium transition-colors">
-                        Facturación
-                    </a>
-                </nav>
-
-                <!-- User Menu -->
-                <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <button id="profileDropdownBtn" class="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors">
-                            <div class="w-8 h-8 bg-paint-blue rounded-full flex items-center justify-center">
-                                <i class="fas fa-user text-white text-sm"></i>
+                <!-- Card Categorías -->
+                <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-tags text-2xl text-green-600"></i>
                             </div>
-                            <span class="hidden md:block text-sm font-medium" data-user-name>Usuario</span>
-                            <i class="fas fa-chevron-down text-xs"></i>
-                        </button>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Categorías</dt>
+                                    <dd class="text-lg font-medium text-gray-900" id="total-categorias">-</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3">
+                        <div class="text-sm">
+                            <a href="/pages/categorias.html" class="font-medium text-green-600 hover:text-green-500">
+                                Ver todas <span aria-hidden="true">&rarr;</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Productos -->
+                <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-paint-roller text-2xl text-purple-600"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Productos</dt>
+                                    <dd class="text-lg font-medium text-gray-900" id="total-productos">-</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3">
+                        <div class="text-sm">
+                            <a href="/pages/productos.html" class="font-medium text-purple-600 hover:text-purple-500">
+                                Ver todos <span aria-hidden="true">&rarr;</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Clientes -->
+                <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-users text-2xl text-orange-600"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Clientes</dt>
+                                    <dd class="text-lg font-medium text-gray-900" id="total-clientes">-</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-5 py-3">
+                        <div class="text-sm">
+                            <a href="/pages/clientes.html" class="font-medium text-orange-600 hover:text-orange-500">
+                                Ver todos <span aria-hidden="true">&rarr;</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones rápidas -->
+            <div class="bg-white shadow rounded-lg mb-8">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">
+                        <i class="fas fa-bolt mr-2 text-yellow-500"></i>
+                        Acciones Rápidas
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a href="/pages/productos.html" class="dashboard-action-btn">
+                            <i class="fas fa-plus-circle text-lg mb-2 text-blue-600"></i>
+                            <span class="block font-medium">Nuevo Producto</span>
+                            <span class="text-sm text-gray-500">Agregar producto al inventario</span>
+                        </a>
                         
-                        <!-- Dropdown Menu -->
-                        <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
-                            <div class="px-4 py-2 text-xs text-gray-500 border-b">
-                                <div data-user-name class="font-medium text-gray-900">Usuario</div>
-                                <div data-user-profile class="text-gray-600">Perfil</div>
-                                <div data-user-sucursal class="text-gray-500">Sucursal</div>
-                            </div>
-                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-user-cog mr-2"></i>Mi Perfil
-                            </a>
-                            <a href="#" onclick="showChangePasswordModal()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-key mr-2"></i>Cambiar Contraseña
-                            </a>
-                            <div class="border-t border-gray-100"></div>
-                            <button data-logout class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
-                                <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        
-        <!-- Welcome Header -->
-        <div class="mb-8">
-            <div class="bg-gradient-to-r from-paint-blue to-blue-700 rounded-lg shadow-lg p-6 text-white">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-3xl font-bold mb-2">
-                            ¡Bienvenido, <span data-user-name>Usuario</span>!
-                        </h2>
-                        <p class="text-blue-100 text-lg">
-                            Perfil: <span data-user-profile class="font-semibold">Cargando...</span> | 
-                            Sucursal: <span data-user-sucursal>Cargando...</span>
-                        </p>
-                        <p class="text-blue-200 text-sm mt-1">
-                            Último acceso: <span id="lastAccess">Cargando...</span>
-                        </p>
-                    </div>
-                    <div class="hidden md:block">
-                        <i class="fas fa-tachometer-alt text-6xl text-blue-200"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Statistics Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            
-            <!-- Sucursales Card -->
-            <div class="bg-white overflow-hidden shadow-md rounded-lg border border-gray-200 hover:shadow-lg transition-shadow">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-store text-blue-600 text-xl"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4 flex-1">
-                            <p class="text-sm font-medium text-gray-500">Sucursales</p>
-                            <p class="text-2xl font-semibold text-gray-900" id="totalSucursales">-</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gray-50 px-5 py-3">
-                    <a href="sucursales.html" class="text-sm text-paint-blue font-medium hover:text-blue-800">
-                        Ver todas <i class="fas fa-arrow-right ml-1"></i>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Categorías Card -->
-            <div class="bg-white overflow-hidden shadow-md rounded-lg border border-gray-200 hover:shadow-lg transition-shadow">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-tags text-green-600 text-xl"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4 flex-1">
-                            <p class="text-sm font-medium text-gray-500">Categorías</p>
-                            <p class="text-2xl font-semibold text-gray-900" id="totalCategorias">-</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gray-50 px-5 py-3">
-                    <a href="categorias.html" class="text-sm text-paint-blue font-medium hover:text-blue-800">
-                        Ver todas <i class="fas fa-arrow-right ml-1"></i>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Productos Card -->
-            <div class="bg-white overflow-hidden shadow-md rounded-lg border border-gray-200 hover:shadow-lg transition-shadow">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-paint-brush text-yellow-600 text-xl"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4 flex-1">
-                            <p class="text-sm font-medium text-gray-500">Productos</p>
-                            <p class="text-2xl font-semibold text-gray-900" id="totalProductos">-</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gray-50 px-5 py-3">
-                    <a href="productos.html" class="text-sm text-paint-blue font-medium hover:text-blue-800">
-                        Ver todos <i class="fas fa-arrow-right ml-1"></i>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Clientes Card -->
-            <div class="bg-white overflow-hidden shadow-md rounded-lg border border-gray-200 hover:shadow-lg transition-shadow">
-                <div class="p-5">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-users text-purple-600 text-xl"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4 flex-1">
-                            <p class="text-sm font-medium text-gray-500">Clientes</p>
-                            <p class="text-2xl font-semibold text-gray-900" id="totalClientes">-</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gray-50 px-5 py-3">
-                    <a href="clientes.html" class="text-sm text-paint-blue font-medium hover:text-blue-800">
-                        Ver todos <i class="fas fa-arrow-right ml-1"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Actions Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
-            
-            <!-- Nueva Factura - Destacada -->
-            <div class="bg-gradient-to-r from-paint-blue to-blue-700 rounded-lg shadow-lg p-6 text-white col-span-1 lg:col-span-2">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="text-2xl font-bold mb-2">Nueva Factura</h3>
-                        <p class="text-blue-100 mb-4">Sistema completo de facturación con múltiples medios de pago</p>
-                        <a href="facturacion.html" 
-                           class="bg-white text-paint-blue px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors inline-flex items-center">
-                            <i class="fas fa-file-invoice mr-2"></i>
-                            Crear Factura
+                        <a href="/pages/categorias.html" class="dashboard-action-btn">
+                            <i class="fas fa-tag text-lg mb-2 text-green-600"></i>
+                            <span class="block font-medium">Nueva Categoría</span>
+                            <span class="text-sm text-gray-500">Crear categoría de productos</span>
                         </a>
-                    </div>
-                    <div class="hidden md:block">
-                        <i class="fas fa-file-invoice text-6xl text-blue-200"></i>
+                        
+                        <a href="/pages/sucursales.html" class="dashboard-action-btn">
+                            <i class="fas fa-map-marker-alt text-lg mb-2 text-red-600"></i>
+                            <span class="block font-medium">Nueva Sucursal</span>
+                            <span class="text-sm text-gray-500">Agregar nueva ubicación</span>
+                        </a>
+                        
+                        <a href="/pages/clientes.html" class="dashboard-action-btn">
+                            <i class="fas fa-user-plus text-lg mb-2 text-purple-600"></i>
+                            <span class="block font-medium">Nuevo Cliente</span>
+                            <span class="text-sm text-gray-500">Registrar cliente nuevo</span>
+                        </a>
+                        
+                        <a href="/pages/facturacion.html" class="dashboard-action-btn">
+                            <i class="fas fa-file-invoice text-lg mb-2 text-indigo-600"></i>
+                            <span class="block font-medium">Nueva Factura</span>
+                            <span class="text-sm text-gray-500">Crear nueva venta</span>
+                        </a>
+                        
+                        <button onclick="loadLowStockProducts()" class="dashboard-action-btn">
+                            <i class="fas fa-exclamation-triangle text-lg mb-2 text-orange-600"></i>
+                            <span class="block font-medium">Stock Bajo</span>
+                            <span class="text-sm text-gray-500">Ver productos con poco stock</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Gestión de Clientes -->
-            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                <div class="text-center">
-                    <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-users text-purple-600 text-2xl"></i>
-                    </div>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Gestión de Clientes</h3>
-                    <p class="text-gray-600 mb-4">Administra la información de todos los clientes</p>
-                    <a href="clientes.html" 
-                       class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg inline-flex items-center transition-colors">
-                        <i class="fas fa-users mr-2"></i>
-                        Gestionar
-                    </a>
+            <!-- Productos con stock bajo -->
+            <div id="low-stock-section" class="bg-white shadow rounded-lg hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-2 text-orange-500"></i>
+                        Productos con Stock Bajo
+                    </h3>
                 </div>
-            </div>
-        </div>
-
-        <!-- Módulos de Gestión -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8 border border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900 mb-6">Módulos de Gestión</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                <!-- Sucursales -->
-                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-store text-blue-600 text-xl"></i>
-                        </div>
-                        <h4 class="font-semibold text-gray-900 mb-2">Sucursales</h4>
-                        <p class="text-gray-600 text-sm mb-4">Gestión de ubicaciones y sucursales</p>
-                        <a href="sucursales.html" 
-                           class="text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors">
-                            Administrar →
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Categorías -->
-                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-tags text-green-600 text-xl"></i>
-                        </div>
-                        <h4 class="font-semibold text-gray-900 mb-2">Categorías</h4>
-                        <p class="text-gray-600 text-sm mb-4">Organización de productos</p>
-                        <a href="categorias.html" 
-                           class="text-green-600 hover:text-green-800 font-medium text-sm transition-colors">
-                            Administrar →
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Productos -->
-                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-paint-brush text-yellow-600 text-xl"></i>
-                        </div>
-                        <h4 class="font-semibold text-gray-900 mb-2">Productos</h4>
-                        <p class="text-gray-600 text-sm mb-4">Inventario y precios</p>
-                        <a href="productos.html" 
-                           class="text-yellow-600 hover:text-yellow-800 font-medium text-sm transition-colors">
-                            Administrar →
-                        </a>
+                <div class="p-6">
+                    <div id="low-stock-content">
+                        <!-- Contenido se carga dinámicamente -->
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Quick Stats -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            <!-- Actividad Reciente -->
-            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Actividad Reciente</h3>
-                <div class="space-y-3">
-                    <div class="flex items-center text-sm">
-                        <div class="w-2 h-2 bg-green-400 rounded-full mr-3"></div>
-                        <span class="text-gray-600">Sistema iniciado correctamente</span>
-                    </div>
-                    <div class="flex items-center text-sm">
-                        <div class="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
-                        <span class="text-gray-600">Conexión a base de datos establecida</span>
-                    </div>
-                    <div class="flex items-center text-sm">
-                        <div class="w-2 h-2 bg-yellow-400 rounded-full mr-3"></div>
-                        <span class="text-gray-600">Módulos de inventario activos</span>
-                    </div>
-                    <div class="flex items-center text-sm">
-                        <div class="w-2 h-2 bg-purple-400 rounded-full mr-3"></div>
-                        <span class="text-gray-600">Sistema de facturación operativo</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Accesos Rápidos -->
-            <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Accesos Rápidos</h3>
-                <div class="grid grid-cols-2 gap-3">
-                    <a href="productos.html" 
-                       class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-                        <div class="w-8 h-8 bg-yellow-100 rounded flex items-center justify-center mr-3 group-hover:bg-yellow-200 transition-colors">
-                            <i class="fas fa-plus text-yellow-600 text-sm"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-900">Nuevo Producto</p>
-                        </div>
-                    </a>
-                    
-                    <a href="clientes.html" 
-                       class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-                        <div class="w-8 h-8 bg-purple-100 rounded flex items-center justify-center mr-3 group-hover:bg-purple-200 transition-colors">
-                            <i class="fas fa-user-plus text-purple-600 text-sm"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-900">Nuevo Cliente</p>
-                        </div>
-                    </a>
-                    
-                    <a href="facturacion.html" 
-                       class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-                        <div class="w-8 h-8 bg-blue-100 rounded flex items-center justify-center mr-3 group-hover:bg-blue-200 transition-colors">
-                            <i class="fas fa-file-invoice text-blue-600 text-sm"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-900">Nueva Factura</p>
-                        </div>
-                    </a>
-                    
-                    <a href="categorias.html" 
-                       class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group">
-                        <div class="w-8 h-8 bg-green-100 rounded flex items-center justify-center mr-3 group-hover:bg-green-200 transition-colors">
-                            <i class="fas fa-tags text-green-600 text-sm"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-900">Nueva Categoría</p>
-                        </div>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </main>
+    </div>
 
     <!-- Scripts -->
-    <!-- ORDEN IMPORTANTE: utils.js debe cargarse primero -->
-    <script src="../assets/js/utils.js"></script>
-    <script src="../assets/js/api.js"></script>
-    <script src="../assets/js/auth.js"></script>
-
+    <script src="/components/navbar.js"></script>
+    <script src="/assets/js/api.js"></script>
     <script>
-        // Dashboard Manager Class
-        class DashboardManager {
+        class Dashboard {
             constructor() {
-                this.user = null;
                 this.init();
             }
 
             async init() {
-                console.log('🚀 Inicializando Dashboard Manager');
-                
-                // Verificar autenticación ANTES de cargar datos
-                if (!utils.protectPage()) {
-                    return; // Si no está autenticado, se redirige automáticamente
-                }
+                await this.loadUserInfo();
+                await this.loadStatistics();
+            }
 
+            async loadUserInfo() {
                 try {
-                    this.user = utils.getCurrentUser();
-                    console.log('👤 Usuario actual:', this.user);
+                    const user = JSON.parse(localStorage.getItem('user') || '{}');
+                    const welcomeMessage = document.getElementById('welcome-message');
                     
-                    // Actualizar información del usuario en la interfaz
-                    this.updateUserInfo();
-                    
-                    // Cargar datos del dashboard
-                    await this.loadDashboardData();
-                    
-                    console.log('✅ Dashboard inicializado correctamente');
+                    if (user.username) {
+                        welcomeMessage.innerHTML = `
+                            <div class="flex items-center">
+                                <i class="fas fa-user-circle text-blue-500 mr-3"></i>
+                                <div>
+                                    <h3 class="text-sm font-medium text-blue-800">¡Bienvenido, ${user.nombre_completo || user.username}!</h3>
+                                    <p class="text-sm text-blue-700">Perfil: ${user.perfil} | Última sesión activa</p>
+                                </div>
+                            </div>
+                        `;
+                    }
                 } catch (error) {
-                    console.error('❌ Error inicializando dashboard:', error);
-                    utils.showAlert('Error al cargar el dashboard', 'error');
+                    console.error('Error loading user info:', error);
                 }
             }
 
-            updateUserInfo() {
-                if (!this.user) return;
-
-                // Actualizar nombre de usuario
-                const userNameElements = document.querySelectorAll('[data-user-name]');
-                userNameElements.forEach(el => {
-                    el.textContent = this.user.nombre_completo || this.user.username;
-                });
-
-                // Actualizar perfil
-                const userProfileElements = document.querySelectorAll('[data-user-profile]');
-                userProfileElements.forEach(el => {
-                    el.textContent = this.user.perfil || this.user.perfil_usuario;
-                });
-
-                // Actualizar sucursal
-                const userSucursalElements = document.querySelectorAll('[data-user-sucursal]');
-                userSucursalElements.forEach(el => {
-                    el.textContent = this.user.sucursal || 'Sin asignar';
-                });
-
-                // Actualizar último acceso
-                const lastAccessElement = document.getElementById('lastAccess');
-                if (lastAccessElement && this.user.ultimo_acceso) {
-                    lastAccessElement.textContent = utils.formatDate(this.user.ultimo_acceso);
-                }
-
-                console.log('✅ Información de usuario actualizada');
-            }
-
-            async loadDashboardData() {
-                console.log('📊 Cargando datos del dashboard...');
-                
+            async loadStatistics() {
                 try {
-                    // Cargar datos en paralelo
-                    await Promise.all([
+                    // Mostrar loading
+                    this.showLoadingStats();
+
+                    // Cargar estadísticas de cada módulo
+                    const [sucursales, categorias, productos, clientes] = await Promise.allSettled([
                         this.loadSucursalesCount(),
                         this.loadCategoriasCount(),
                         this.loadProductosCount(),
                         this.loadClientesCount()
                     ]);
 
-                    console.log('✅ Datos del dashboard cargados');
+                    // Actualizar contadores
+                    if (sucursales.status === 'fulfilled') {
+                        document.getElementById('total-sucursales').textContent = sucursales.value;
+                    }
+                    if (categorias.status === 'fulfilled') {
+                        document.getElementById('total-categorias').textContent = categorias.value;
+                    }
+                    if (productos.status === 'fulfilled') {
+                        document.getElementById('total-productos').textContent = productos.value;
+                    }
+                    if (clientes.status === 'fulfilled') {
+                        document.getElementById('total-clientes').textContent = clientes.value;
+                    }
+
                 } catch (error) {
-                    console.error('❌ Error cargando datos del dashboard:', error);
+                    console.error('Error loading statistics:', error);
                 }
+            }
+
+            showLoadingStats() {
+                const elements = ['total-sucursales', 'total-categorias', 'total-productos', 'total-clientes'];
+                elements.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    }
+                });
             }
 
             async loadSucursalesCount() {
                 try {
-                    const response = await sucursalesService.getAll({ limit: 1 });
-                    if (response.success) {
-                        const count = response.pagination?.total || response.data?.length || 0;
-                        document.getElementById('totalSucursales').textContent = count;
-                    }
+                    const response = await api.get('/sucursales?limit=1');
+                    return response.data.pagination?.totalItems || 0;
                 } catch (error) {
                     console.error('Error loading sucursales count:', error);
-                    document.getElementById('totalSucursales').textContent = '-';
+                    return '?';
                 }
             }
 
             async loadCategoriasCount() {
                 try {
-                    const response = await categoriasService.getAll({ limit: 1 });
-                    if (response.success) {
-                        const count = response.pagination?.total || response.data?.length || 0;
-                        document.getElementById('totalCategorias').textContent = count;
-                    }
+                    const response = await api.get('/categorias?limit=1');
+                    return response.data.pagination?.totalItems || 0;
                 } catch (error) {
                     console.error('Error loading categorias count:', error);
-                    document.getElementById('totalCategorias').textContent = '-';
+                    return '?';
                 }
             }
 
             async loadProductosCount() {
                 try {
-                    const response = await productosService.getAll({ limit: 1 });
-                    if (response.success) {
-                        const count = response.pagination?.total || response.data?.length || 0;
-                        document.getElementById('totalProductos').textContent = count;
-                    }
+                    const response = await api.get('/productos?limit=1');
+                    return response.data.pagination?.totalItems || 0;
                 } catch (error) {
                     console.error('Error loading productos count:', error);
-                    document.getElementById('totalProductos').textContent = '-';
+                    return '?';
                 }
             }
 
             async loadClientesCount() {
                 try {
-                    const response = await clientesService.getAll({ limit: 1 });
-                    if (response.success) {
-                        const count = response.pagination?.total || response.data?.length || 0;
-                        document.getElementById('totalClientes').textContent = count;
-                    }
+                    const response = await api.get('/clientes?limit=1');
+                    return response.data.pagination?.totalItems || 0;
                 } catch (error) {
                     console.error('Error loading clientes count:', error);
-                    document.getElementById('totalClientes').textContent = '-';
+                    return '?';
+                }
+            }
+
+            async loadLowStockProducts() {
+                try {
+                    const response = await api.get('/productos/low-stock');
+                    const products = response.data || [];
+                    
+                    const section = document.getElementById('low-stock-section');
+                    const content = document.getElementById('low-stock-content');
+                    
+                    if (products.length === 0) {
+                        content.innerHTML = `
+                            <div class="text-center py-8">
+                                <i class="fas fa-check-circle text-4xl text-green-500 mb-4"></i>
+                                <p class="text-gray-600">¡Excelente! No hay productos con stock bajo.</p>
+                            </div>
+                        `;
+                    } else {
+                        const productsHTML = products.map(product => `
+                            <div class="flex items-center justify-between py-3 border-b border-gray-200">
+                                <div>
+                                    <p class="font-medium text-gray-900">${product.nombre}</p>
+                                    <p class="text-sm text-gray-500">Código: ${product.codigo}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        Stock: ${product.stock_actual || 0}
+                                    </span>
+                                    <p class="text-xs text-gray-500 mt-1">Mínimo: ${product.stock_minimo}</p>
+                                </div>
+                            </div>
+                        `).join('');
+                        
+                        content.innerHTML = `
+                            <div class="space-y-1">
+                                ${productsHTML}
+                            </div>
+                            <div class="mt-4 pt-4 border-t">
+                                <a href="/pages/productos.html" class="text-sm font-medium text-blue-600 hover:text-blue-500">
+                                    Ver todos los productos &rarr;
+                                </a>
+                            </div>
+                        `;
+                    }
+                    
+                    section.classList.remove('hidden');
+                    section.scrollIntoView({ behavior: 'smooth' });
+                    
+                } catch (error) {
+                    console.error('Error loading low stock products:', error);
+                    const content = document.getElementById('low-stock-content');
+                    content.innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                            <p class="text-red-600">Error al cargar productos con stock bajo</p>
+                        </div>
+                    `;
+                    document.getElementById('low-stock-section').classList.remove('hidden');
                 }
             }
         }
 
+        // Función global para el botón
+        async function loadLowStockProducts() {
+            const dashboard = new Dashboard();
+            await dashboard.loadLowStockProducts();
+        }
+
         // Inicializar cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🔄 DOM cargado, inicializando dashboard...');
-            
-            // PROTECCIÓN: Verificar autenticación antes de hacer nada
-            if (!utils.isAuthenticated()) {
-                console.warn('❌ No autenticado, redirigiendo a login');
-                window.location.href = 'login.html';
-                return;
-            }
-
-            // Verificar que los servicios estén disponibles
-            if (typeof authService === 'undefined' || typeof utils === 'undefined') {
-                console.error('❌ Servicios no disponibles, recargando página...');
-                setTimeout(() => window.location.reload(), 1000);
-                return;
-            }
-
-            // Inicializar dashboard
-            window.dashboardManager = new DashboardManager();
-            
-            console.log('✅ Dashboard inicializado');
+        document.addEventListener('DOMContentLoaded', () => {
+            new Dashboard();
         });
-
-        // Manejar eventos de visibilidad de página
-        document.addEventListener('visibilitychange', function() {
-            if (document.visibilityState === 'visible') {
-                // Verificar si la sesión sigue activa cuando la página vuelve a ser visible
-                if (!utils.isAuthenticated()) {
-                    console.warn('Sesión expirada detectada');
-                    window.location.href = 'login.html';
-                }
-            }
-        });
-
-        // Actualizar título de página
-        utils.updatePageTitle('Dashboard');
     </script>
+
+    <style>
+        .dashboard-action-btn {
+            @apply block p-6 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-200 text-center;
+            text-decoration: none;
+        }
+
+        .dashboard-action-btn:hover {
+            transform: translateY(-2px);
+        }
+    </style>
 </body>
 </html>

@@ -1,15 +1,15 @@
-// backend/src/repositories/productoRepository.js
+// backend/src/repositories/productoRepository.js - CORREGIDO PARA ESTRUCTURA REAL
 const { executeQuery } = require('../config/database');
 
 class ProductoRepository {
   
-  // Obtener todos los productos con información completa
+  // Obtener todos los productos con información completa - CONSULTA CORREGIDA
   static async findAll(page = 1, limit = 10, search = '', categoria = '') {
     try {
       const offset = (page - 1) * limit;
       
-      let whereClause = 'WHERE p.estado = TRUE';
-      let searchParams = [];
+      let whereClause = 'WHERE p.estado = ?';
+      let searchParams = ['Activo'];
       
       if (search) {
         whereClause += ' AND (p.codigo LIKE ? OR p.nombre LIKE ? OR p.descripcion LIKE ?)';
@@ -28,45 +28,41 @@ class ProductoRepository {
         ${whereClause}
       `;
       
+      // CONSULTA CORREGIDA CON NOMBRES REALES DE CAMPOS
       const sql = `
         SELECT 
           p.id_producto,
           p.codigo,
           p.nombre,
           p.descripcion,
-          p.porcentaje_descuento,
+          p.precio_venta,
+          p.descuento_porcentaje,
           p.stock_minimo,
-          p.tiempo_duracion_anos,
-          p.extension_cobertura_m2,
-          p.fecha_creacion,
+          p.stock_actual,
+          p.duracion_anos,
+          p.cobertura_m2,
+          p.created_at,
           p.estado,
           c.nombre as categoria,
           u.nombre as unidad_medida,
           u.abreviatura as unidad_abrev,
           col.nombre as color,
           col.codigo_hex,
-          hp.precio_venta,
-          hp.precio_compra,
-          (hp.precio_venta * (1 - p.porcentaje_descuento/100)) as precio_final,
-          COALESCE(SUM(sb.cantidad_actual), 0) as stock_total
+          (p.precio_venta * (1 - p.descuento_porcentaje/100)) as precio_final
         FROM productos p
         LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-        LEFT JOIN unidades_medida u ON p.id_unidad = u.id_unidad
+        LEFT JOIN unidades_medida u ON p.id_unidad_medida = u.id_unidad
         LEFT JOIN colores col ON p.id_color = col.id_color
-        LEFT JOIN historial_precios hp ON p.id_producto = hp.id_producto AND hp.estado_precio = 'Activo'
-        LEFT JOIN stock_bodega sb ON p.id_producto = sb.id_producto
         ${whereClause}
-        GROUP BY p.id_producto, p.codigo, p.nombre, p.descripcion, p.porcentaje_descuento, 
-                 p.stock_minimo, p.tiempo_duracion_anos, p.extension_cobertura_m2, 
-                 p.fecha_creacion, p.estado, c.nombre, u.nombre, u.abreviatura,
-                 col.nombre, col.codigo_hex, hp.precio_venta, hp.precio_compra
         ORDER BY p.nombre ASC
         LIMIT ? OFFSET ?
       `;
       
+      const params = [...searchParams, limit, offset];
+      
       const [countResult, productos] = await Promise.all([
         executeQuery(sqlCount, searchParams),
-        executeQuery(sql, [...searchParams, limit, offset])
+        executeQuery(sql, params)
       ]);
       
       return {
@@ -79,7 +75,7 @@ class ProductoRepository {
     }
   }
 
-  // Buscar producto por ID con información completa
+  // Buscar producto por ID - CORREGIDO
   static async findById(id) {
     try {
       const sql = `
@@ -88,35 +84,29 @@ class ProductoRepository {
           p.codigo,
           p.nombre,
           p.descripcion,
-          p.porcentaje_descuento,
+          p.precio_venta,
+          p.descuento_porcentaje,
           p.stock_minimo,
-          p.id_categoria,
-          p.id_unidad,
-          p.id_color,
-          p.tiempo_duracion_anos,
-          p.extension_cobertura_m2,
-          p.fecha_creacion,
+          p.stock_actual,
+          p.duracion_anos,
+          p.cobertura_m2,
+          p.created_at,
+          p.updated_at,
           p.estado,
           c.nombre as categoria,
+          c.id_categoria,
           u.nombre as unidad_medida,
-          u.abreviatura as unidad_abrev,
+          u.id_unidad,
           col.nombre as color,
-          col.codigo_hex,
-          hp.precio_venta,
-          hp.precio_compra,
-          (hp.precio_venta * (1 - p.porcentaje_descuento/100)) as precio_final,
-          COALESCE(SUM(sb.cantidad_actual), 0) as stock_total
+          col.id_color
         FROM productos p
         LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-        LEFT JOIN unidades_medida u ON p.id_unidad = u.id_unidad
+        LEFT JOIN unidades_medida u ON p.id_unidad_medida = u.id_unidad
         LEFT JOIN colores col ON p.id_color = col.id_color
-        LEFT JOIN historial_precios hp ON p.id_producto = hp.id_producto AND hp.estado_precio = 'Activo'
-        LEFT JOIN stock_bodega sb ON p.id_producto = sb.id_producto
-        WHERE p.id_producto = ? AND p.estado = TRUE
-        GROUP BY p.id_producto
+        WHERE p.id_producto = ? AND p.estado = ?
       `;
       
-      const result = await executeQuery(sql, [id]);
+      const result = await executeQuery(sql, [id, 'Activo']);
       return result.length > 0 ? result[0] : null;
     } catch (error) {
       console.error('Error en findById producto:', error);
@@ -124,28 +114,31 @@ class ProductoRepository {
     }
   }
 
-  // Crear nuevo producto
+  // Crear nuevo producto - CORREGIDO
   static async create(productoData) {
     try {
       const sql = `
         INSERT INTO productos (
-          codigo, nombre, descripcion, porcentaje_descuento, 
-          stock_minimo, id_categoria, id_unidad, id_color,
-          tiempo_duracion_anos, extension_cobertura_m2, estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+          codigo, nombre, descripcion, id_categoria, precio_venta, 
+          descuento_porcentaje, id_unidad_medida, id_color,
+          stock_minimo, stock_actual, duracion_anos, cobertura_m2, estado
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       const result = await executeQuery(sql, [
         productoData.codigo,
         productoData.nombre,
         productoData.descripcion || null,
-        productoData.porcentaje_descuento || 0,
-        productoData.stock_minimo || 10,
         productoData.id_categoria,
-        productoData.id_unidad,
+        productoData.precio_venta || 0,
+        productoData.descuento_porcentaje || 0,
+        productoData.id_unidad_medida,
         productoData.id_color || null,
-        productoData.tiempo_duracion_anos || null,
-        productoData.extension_cobertura_m2 || null
+        productoData.stock_minimo || 5,
+        productoData.stock_actual || 0,
+        productoData.duracion_anos || null,
+        productoData.cobertura_m2 || null,
+        'Activo'
       ]);
       
       return result.insertId;
@@ -155,7 +148,7 @@ class ProductoRepository {
     }
   }
 
-  // Actualizar producto
+  // Actualizar producto - CORREGIDO
   static async update(id, productoData) {
     try {
       const fields = [];
@@ -176,9 +169,14 @@ class ProductoRepository {
         values.push(productoData.descripcion);
       }
       
-      if (productoData.porcentaje_descuento !== undefined) {
-        fields.push('porcentaje_descuento = ?');
-        values.push(productoData.porcentaje_descuento);
+      if (productoData.precio_venta !== undefined) {
+        fields.push('precio_venta = ?');
+        values.push(productoData.precio_venta);
+      }
+      
+      if (productoData.descuento_porcentaje !== undefined) {
+        fields.push('descuento_porcentaje = ?');
+        values.push(productoData.descuento_porcentaje);
       }
       
       if (productoData.stock_minimo !== undefined) {
@@ -186,14 +184,19 @@ class ProductoRepository {
         values.push(productoData.stock_minimo);
       }
       
+      if (productoData.stock_actual !== undefined) {
+        fields.push('stock_actual = ?');
+        values.push(productoData.stock_actual);
+      }
+      
       if (productoData.id_categoria !== undefined) {
         fields.push('id_categoria = ?');
         values.push(productoData.id_categoria);
       }
       
-      if (productoData.id_unidad !== undefined) {
-        fields.push('id_unidad = ?');
-        values.push(productoData.id_unidad);
+      if (productoData.id_unidad_medida !== undefined) {
+        fields.push('id_unidad_medida = ?');
+        values.push(productoData.id_unidad_medida);
       }
       
       if (productoData.id_color !== undefined) {
@@ -201,14 +204,14 @@ class ProductoRepository {
         values.push(productoData.id_color);
       }
       
-      if (productoData.tiempo_duracion_anos !== undefined) {
-        fields.push('tiempo_duracion_anos = ?');
-        values.push(productoData.tiempo_duracion_anos);
+      if (productoData.duracion_anos !== undefined) {
+        fields.push('duracion_anos = ?');
+        values.push(productoData.duracion_anos);
       }
       
-      if (productoData.extension_cobertura_m2 !== undefined) {
-        fields.push('extension_cobertura_m2 = ?');
-        values.push(productoData.extension_cobertura_m2);
+      if (productoData.cobertura_m2 !== undefined) {
+        fields.push('cobertura_m2 = ?');
+        values.push(productoData.cobertura_m2);
       }
       
       if (fields.length === 0) {
@@ -220,8 +223,10 @@ class ProductoRepository {
       const sql = `
         UPDATE productos 
         SET ${fields.join(', ')}
-        WHERE id_producto = ? AND estado = TRUE
+        WHERE id_producto = ? AND estado = ?
       `;
+      
+      values.push('Activo');
       
       const result = await executeQuery(sql, values);
       return result.affectedRows > 0;
@@ -231,16 +236,16 @@ class ProductoRepository {
     }
   }
 
-  // Desactivar producto (soft delete)
+  // Desactivar producto (soft delete) - CORREGIDO
   static async delete(id) {
     try {
       const sql = `
         UPDATE productos 
-        SET estado = FALSE
+        SET estado = ?
         WHERE id_producto = ?
       `;
       
-      const result = await executeQuery(sql, [id]);
+      const result = await executeQuery(sql, ['Inactivo', id]);
       return result.affectedRows > 0;
     } catch (error) {
       console.error('Error en delete producto:', error);
@@ -248,15 +253,15 @@ class ProductoRepository {
     }
   }
 
-  // Verificar si existe producto por código
+  // Verificar si existe producto por código - CORREGIDO
   static async existsByCode(codigo, excludeId = null) {
     try {
       let sql = `
         SELECT COUNT(*) as count
         FROM productos
-        WHERE codigo = ? AND estado = TRUE
+        WHERE codigo = ? AND estado = ?
       `;
-      let params = [codigo];
+      let params = [codigo, 'Activo'];
       
       if (excludeId) {
         sql += ' AND id_producto != ?';
@@ -271,7 +276,7 @@ class ProductoRepository {
     }
   }
 
-  // Obtener productos para select/dropdown
+  // Obtener productos para select/dropdown - CORREGIDO
   static async getForSelect() {
     try {
       const sql = `
@@ -279,105 +284,21 @@ class ProductoRepository {
           p.id_producto,
           p.codigo,
           p.nombre,
-          hp.precio_venta,
-          (hp.precio_venta * (1 - p.porcentaje_descuento/100)) as precio_final
+          p.precio_venta,
+          (p.precio_venta * (1 - p.descuento_porcentaje/100)) as precio_final
         FROM productos p
-        LEFT JOIN historial_precios hp ON p.id_producto = hp.id_producto AND hp.estado_precio = 'Activo'
-        WHERE p.estado = TRUE
+        WHERE p.estado = ?
         ORDER BY p.nombre ASC
       `;
       
-      return await executeQuery(sql);
+      return await executeQuery(sql, ['Activo']);
     } catch (error) {
       console.error('Error en getForSelect productos:', error);
       throw error;
     }
   }
 
-  // Crear precio para producto
-  static async createPrice(priceData) {
-    try {
-      // Primero desactivar precio actual si existe
-      await executeQuery(`
-        UPDATE historial_precios 
-        SET estado_precio = 'Inactivo', fecha_fin = NOW()
-        WHERE id_producto = ? AND estado_precio = 'Activo'
-      `, [priceData.id_producto]);
-
-      // Crear nuevo precio
-      const sql = `
-        INSERT INTO historial_precios (
-          id_producto, precio_venta, precio_compra, 
-          motivo_cambio, id_empleado_modifico, estado_precio
-        ) VALUES (?, ?, ?, ?, ?, 'Activo')
-      `;
-      
-      const result = await executeQuery(sql, [
-        priceData.id_producto,
-        priceData.precio_venta,
-        priceData.precio_compra || null,
-        priceData.motivo_cambio || 'Actualización de precio',
-        priceData.id_empleado_modifico || null
-      ]);
-      
-      return result.insertId;
-    } catch (error) {
-      console.error('Error en createPrice:', error);
-      throw error;
-    }
-  }
-
-  // Obtener historial de precios de un producto
-  static async getPriceHistory(productId) {
-    try {
-      const sql = `
-        SELECT 
-          hp.id_historial_precio,
-          hp.precio_venta,
-          hp.precio_compra,
-          hp.fecha_inicio,
-          hp.fecha_fin,
-          hp.motivo_cambio,
-          hp.estado_precio,
-          CONCAT(e.nombres, ' ', e.apellidos) as empleado_modifico
-        FROM historial_precios hp
-        LEFT JOIN empleados e ON hp.id_empleado_modifico = e.id_empleado
-        WHERE hp.id_producto = ?
-        ORDER BY hp.fecha_inicio DESC
-      `;
-      
-      return await executeQuery(sql, [productId]);
-    } catch (error) {
-      console.error('Error en getPriceHistory:', error);
-      throw error;
-    }
-  }
-
-  // Obtener stock por bodega de un producto
-  static async getStockByProduct(productId) {
-    try {
-      const sql = `
-        SELECT 
-          sb.id_stock,
-          sb.cantidad_actual,
-          sb.fecha_ultima_actualizacion,
-          b.nombre as bodega,
-          s.nombre as sucursal
-        FROM stock_bodega sb
-        INNER JOIN bodegas b ON sb.id_bodega = b.id_bodega
-        INNER JOIN sucursales s ON b.id_sucursal = s.id_sucursal
-        WHERE sb.id_producto = ?
-        ORDER BY s.nombre, b.nombre
-      `;
-      
-      return await executeQuery(sql, [productId]);
-    } catch (error) {
-      console.error('Error en getStockByProduct:', error);
-      throw error;
-    }
-  }
-
-  // Obtener productos con stock bajo
+  // Obtener productos con stock bajo - CORREGIDO
   static async getProductsWithLowStock() {
     try {
       const sql = `
@@ -386,20 +307,68 @@ class ProductoRepository {
           p.codigo,
           p.nombre,
           p.stock_minimo,
-          COALESCE(SUM(sb.cantidad_actual), 0) as stock_total,
+          p.stock_actual,
           c.nombre as categoria
         FROM productos p
-        LEFT JOIN stock_bodega sb ON p.id_producto = sb.id_producto
         LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-        WHERE p.estado = TRUE
-        GROUP BY p.id_producto, p.codigo, p.nombre, p.stock_minimo, c.nombre
-        HAVING stock_total <= p.stock_minimo
-        ORDER BY stock_total ASC, p.nombre
+        WHERE p.estado = ? AND p.stock_actual <= p.stock_minimo
+        ORDER BY p.stock_actual ASC, p.nombre
       `;
       
-      return await executeQuery(sql);
+      return await executeQuery(sql, ['Activo']);
     } catch (error) {
       console.error('Error en getProductsWithLowStock:', error);
+      throw error;
+    }
+  }
+
+  // Obtener categorías para los dropdowns
+  static async getCategorias() {
+    try {
+      const sql = `
+        SELECT id_categoria, nombre
+        FROM categorias_productos
+        WHERE estado = ?
+        ORDER BY nombre ASC
+      `;
+      
+      return await executeQuery(sql, ['Activo']);
+    } catch (error) {
+      console.error('Error en getCategorias:', error);
+      throw error;
+    }
+  }
+
+  // Obtener unidades de medida para los dropdowns
+  static async getUnidadesMedida() {
+    try {
+      const sql = `
+        SELECT id_unidad, nombre, abreviatura
+        FROM unidades_medida
+        WHERE estado = ?
+        ORDER BY nombre ASC
+      `;
+      
+      return await executeQuery(sql, ['Activo']);
+    } catch (error) {
+      console.error('Error en getUnidadesMedida:', error);
+      throw error;
+    }
+  }
+
+  // Obtener colores para los dropdowns
+  static async getColores() {
+    try {
+      const sql = `
+        SELECT id_color, nombre, codigo_hex
+        FROM colores
+        WHERE estado = ?
+        ORDER BY nombre ASC
+      `;
+      
+      return await executeQuery(sql, ['Activo']);
+    } catch (error) {
+      console.error('Error en getColores:', error);
       throw error;
     }
   }

@@ -3,250 +3,678 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Sucursales - Sistema Paints</title>
+    <title>Sucursales - Sistema Paints</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'paint-blue': '#2563eb',
-                        'paint-orange': '#f97316',
-                        'paint-gray': '#6b7280'
-                    }
-                }
-            }
-        }
-    </script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <a href="dashboard.html" class="flex items-center space-x-3">
-                        <i class="fas fa-paint-brush text-paint-blue text-xl"></i>
-                        <span class="text-xl font-bold text-gray-900">Sistema Paints</span>
-                    </a>
-                    <span class="ml-4 text-gray-500">/ Sucursales</span>
-                </div>
-                <div class="flex items-center space-x-4" id="userInfo">
-                    <!-- User info will be populated by JavaScript -->
-                </div>
-            </div>
-        </div>
-    </nav>
+<body class="bg-gray-100">
+    <!-- Navegación se inyecta automáticamente -->
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900">
-                    <i class="fas fa-store text-paint-blue mr-3"></i>
-                    Gestión de Sucursales
-                </h1>
-                <p class="text-gray-600 mt-2">Administra las sucursales del sistema</p>
-            </div>
-            <div class="flex space-x-3">
-                <button id="btnNuevaSucursal" data-require-profile="Gerente,Digitador"
-                        class="bg-paint-blue hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
-                    <i class="fas fa-plus mr-2"></i>
-                    Nueva Sucursal
-                </button>
-                <a href="dashboard.html" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Volver
-                </a>
-            </div>
-        </div>
-
-        <!-- Search and Filters -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div class="flex space-x-4 items-end">
-                <div class="flex-1">
-                    <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-search mr-1"></i>
-                        Buscar sucursales
-                    </label>
-                    <input type="text" id="searchInput" 
-                           placeholder="Buscar por nombre, dirección o departamento..."
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue focus:border-paint-blue">
-                </div>
-                <button id="btnActualizar" class="bg-paint-blue hover:bg-blue-700 text-white px-4 py-2 rounded-md">
-                    <i class="fas fa-sync-alt mr-2"></i>
-                    Actualizar
-                </button>
-            </div>
-        </div>
-
-        <!-- Loading -->
-        <div id="loadingSpinner" class="hidden text-center py-8">
-            <div class="inline-flex items-center">
-                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-paint-blue mr-3"></div>
-                <span class="text-gray-600">Cargando sucursales...</span>
-            </div>
-        </div>
-
-        <!-- Sucursales Table -->
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Sucursal
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Ubicación
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Contacto
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Acciones
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="sucursalesTableBody" class="bg-white divide-y divide-gray-200">
-                        <!-- Content will be populated by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-                <div class="flex-1 flex justify-between items-center">
+    <!-- Contenido principal -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <!-- Encabezado -->
+            <div class="mb-8">
+                <div class="flex justify-between items-center">
                     <div>
-                        <p class="text-sm text-gray-700">
-                            Página <span id="currentPage">1</span> de <span id="totalPages">1</span>
-                        </p>
+                        <h1 class="text-2xl font-bold text-gray-900 flex items-center">
+                            <i class="fas fa-store mr-3 text-blue-600"></i>
+                            Gestión de Sucursales
+                        </h1>
+                        <p class="mt-1 text-sm text-gray-600">Administra las sucursales del sistema</p>
                     </div>
-                    <div class="flex space-x-2">
-                        <button id="btnPrevPage" 
-                                class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <div id="pageNumbers" class="flex space-x-1">
-                            <!-- Page numbers will be populated by JavaScript -->
-                        </div>
-                        <button id="btnNextPage" 
-                                class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
+                    <button onclick="openCreateModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center">
+                        <i class="fas fa-plus mr-2"></i>
+                        Nueva Sucursal
+                    </button>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Modal para Crear/Editar Sucursal -->
-    <div id="modalSucursal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg max-w-2xl w-full mx-4 p-6 max-h-screen overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h3 id="modalTitle" class="text-xl font-semibold">Nueva Sucursal</h3>
-                <button id="btnCerrarModal" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-            
-            <form id="sucursalForm">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Nombre de Sucursal <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text" name="nombre" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue focus:border-paint-blue">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Departamento <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text" name="departamento" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue focus:border-paint-blue"
-                               placeholder="Ej: Guatemala, Escuintla, Sacatepéquez">
-                    </div>
-                    
+            <!-- Controles de filtro -->
+            <div class="bg-white p-4 rounded-lg shadow mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Dirección <span class="text-red-500">*</span>
+                            <i class="fas fa-search mr-1"></i>Buscar sucursales
                         </label>
-                        <textarea name="direccion" required rows="2" 
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue focus:border-paint-blue resize-none"
-                                  placeholder="Dirección completa de la sucursal"></textarea>
+                        <input type="text" 
+                               id="search-input" 
+                               placeholder="Buscar por nombre, dirección o departamento..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
-                        <input type="text" name="telefono" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue focus:border-paint-blue"
-                               placeholder="2234-5678 o 5555-1234">
-                        <p class="text-xs text-gray-500 mt-1">Formato: 2234-5678</p>
+                    <div class="flex items-end">
+                        <button onclick="refreshSucursales()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center">
+                            <i class="fas fa-sync-alt mr-2"></i>Actualizar
+                        </button>
                     </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Latitud (GPS)</label>
-                        <input type="number" name="latitud" step="any" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue focus:border-paint-blue"
-                               placeholder="14.6349">
-                        <p class="text-xs text-gray-500 mt-1">Coordenada GPS opcional</p>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Longitud (GPS)</label>
-                        <input type="number" name="longitud" step="any" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-paint-blue focus:border-paint-blue"
-                               placeholder="-90.5069">
-                        <p class="text-xs text-gray-500 mt-1">Coordenada GPS opcional</p>
-                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de sucursales -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">Lista de Sucursales</h3>
                 </div>
                 
-                <div class="mt-8 flex justify-end space-x-3">
-                    <button type="button" id="btnCancelar" 
-                            class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-md">
-                        Cancelar
-                    </button>
-                    <button type="submit" id="btnGuardar"
-                            class="bg-paint-blue hover:bg-blue-700 text-white px-6 py-2 rounded-md">
-                        Guardar Sucursal
+                <!-- Loading state -->
+                <div id="loading" class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                    <p class="mt-2 text-gray-600">Cargando sucursales...</p>
+                </div>
+
+                <!-- Tabla de sucursales -->
+                <div id="sucursales-table" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sucursal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicación</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sucursales-tbody" class="bg-white divide-y divide-gray-200">
+                                <!-- Sucursales se cargan dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Paginación -->
+                    <div id="pagination-container" class="px-6 py-4 border-t border-gray-200">
+                        <!-- Paginación se carga dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Estado vacío -->
+                <div id="empty-state" class="text-center py-12 hidden">
+                    <i class="fas fa-store text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-xl text-gray-500 mb-2">No hay sucursales</p>
+                    <p class="text-gray-400">Comienza agregando la primera sucursal</p>
+                    <button onclick="openCreateModal()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                        <i class="fas fa-plus mr-2"></i>Agregar Sucursal
                     </button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
-    <!-- Modal de Confirmación -->
-    <div id="modalConfirmacion" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg max-w-md w-full mx-4 p-6">
-            <div class="flex items-center mb-4">
-                <i class="fas fa-exclamation-triangle text-yellow-500 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold">Confirmar Acción</h3>
+    <!-- Modal para crear/editar sucursal -->
+    <div id="sucursal-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
-            <p id="mensajeConfirmacion" class="text-gray-600 mb-6">
-                ¿Está seguro de que desea realizar esta acción?
-            </p>
-            
-            <div class="flex justify-end space-x-3">
-                <button id="btnCancelarConfirmacion" 
-                        class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md">
-                    Cancelar
-                </button>
-                <button id="btnConfirmarAccion" 
-                        class="bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded-md">
-                    Confirmar
-                </button>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <form id="sucursal-form">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="w-full">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" id="modal-title">
+                                    Nueva Sucursal
+                                </h3>
+
+                                <div class="grid grid-cols-1 gap-4">
+                                    <!-- Nombre -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            Nombre <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" 
+                                               name="nombre" 
+                                               id="nombre"
+                                               required
+                                               placeholder="Nombre de la sucursal"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+
+                                    <!-- Dirección -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            Dirección <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" 
+                                               name="direccion" 
+                                               id="direccion"
+                                               required
+                                               placeholder="Dirección completa"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+
+                                    <!-- Departamento y Ciudad -->
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                Departamento <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="text" 
+                                                   name="departamento" 
+                                                   id="departamento"
+                                                   required
+                                                   placeholder="Guatemala"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                                Ciudad <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="text" 
+                                                   name="ciudad" 
+                                                   id="ciudad"
+                                                   required
+                                                   placeholder="Ciudad de Guatemala"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        </div>
+                                    </div>
+
+                                    <!-- Teléfono -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                                        <input type="tel" 
+                                               name="telefono" 
+                                               id="telefono"
+                                               placeholder="2222-2222 o 5555-5555"
+                                               pattern="[0-9]{4}-[0-9]{4}"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+
+                                    <!-- Email -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                        <input type="email" 
+                                               name="email" 
+                                               id="email"
+                                               placeholder="sucursal@sistemapaints.com"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    </div>
+
+                                    <!-- Coordenadas GPS -->
+                                    <div class="border-t pt-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            <i class="fas fa-map-marker-alt mr-1"></i>Coordenadas GPS (Opcional)
+                                        </label>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <input type="number" 
+                                                       name="latitud" 
+                                                       id="latitud"
+                                                       step="any"
+                                                       placeholder="Latitud"
+                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                            </div>
+                                            <div>
+                                                <input type="number" 
+                                                       name="longitud" 
+                                                       id="longitud"
+                                                       step="any"
+                                                       placeholder="Longitud"
+                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                            </div>
+                                        </div>
+                                        <p class="mt-1 text-xs text-gray-500">Formato: 14.634900, -90.506900</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="submit" 
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            <i class="fas fa-save mr-2"></i>
+                            <span id="submit-text">Guardar</span>
+                        </button>
+                        <button type="button" 
+                                onclick="closeModal()"
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
-    <script src="../assets/js/api.js"></script>
-    <script src="../assets/js/auth.js"></script>
-    <script src="../assets/js/utils.js"></script>
-    <script src="../assets/js/sucursales.js"></script>
+    <script src="/components/navbar.js"></script>
+    <script src="/assets/js/api.js"></script>
+    <script>
+        class SucursalesManager {
+            constructor() {
+                this.currentPage = 1;
+                this.totalPages = 1;
+                this.currentSearch = '';
+                this.editingId = null;
+                this.init();
+            }
+
+            async init() {
+                await this.loadSucursales();
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // Búsqueda
+                const searchInput = document.getElementById('search-input');
+                let searchTimeout;
+                
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        this.currentSearch = e.target.value;
+                        this.currentPage = 1;
+                        this.loadSucursales();
+                    }, 300);
+                });
+
+                // Formulario
+                document.getElementById('sucursal-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleSubmit();
+                });
+            }
+
+            async loadSucursales() {
+                try {
+                    document.getElementById('loading').classList.remove('hidden');
+                    document.getElementById('sucursales-table').classList.add('hidden');
+                    document.getElementById('empty-state').classList.add('hidden');
+
+                    const params = new URLSearchParams({
+                        page: this.currentPage,
+                        limit: 10
+                    });
+
+                    if (this.currentSearch) {
+                        params.append('search', this.currentSearch);
+                    }
+
+                    const response = await api.get(`/sucursales?${params}`);
+                    const { sucursales, pagination } = response.data;
+
+                    document.getElementById('loading').classList.add('hidden');
+
+                    if (!sucursales || sucursales.length === 0) {
+                        document.getElementById('empty-state').classList.remove('hidden');
+                        return;
+                    }
+
+                    this.totalPages = pagination.totalPages;
+                    this.renderSucursales(sucursales);
+                    this.renderPagination(pagination);
+
+                    document.getElementById('sucursales-table').classList.remove('hidden');
+
+                } catch (error) {
+                    document.getElementById('loading').classList.add('hidden');
+                    console.error('Error loading sucursales:', error);
+                    this.showToast('Error al cargar sucursales', 'error');
+                }
+            }
+
+            renderSucursales(sucursales) {
+                const tbody = document.getElementById('sucursales-tbody');
+                tbody.innerHTML = sucursales.map(sucursal => `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-4">
+                                    <i class="fas fa-store text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">${sucursal.nombre}</div>
+                                    <div class="text-sm text-gray-500">ID: ${sucursal.id_sucursal}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${sucursal.direccion}</div>
+                            <div class="text-sm text-gray-500">${sucursal.ciudad}, ${sucursal.departamento}</div>
+                            ${sucursal.latitud && sucursal.longitud ? 
+                                `<div class="text-xs text-blue-600">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>
+                                    ${parseFloat(sucursal.latitud).toFixed(6)}, ${parseFloat(sucursal.longitud).toFixed(6)}
+                                </div>` : 
+                                ''
+                            }
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">
+                                ${sucursal.telefono ? `<div><i class="fas fa-phone mr-1"></i>${sucursal.telefono}</div>` : ''}
+                                ${sucursal.email ? `<div><i class="fas fa-envelope mr-1"></i>${sucursal.email}</div>` : ''}
+                                ${!sucursal.telefono && !sucursal.email ? '<span class="text-gray-400">Sin información</span>' : ''}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                sucursal.estado === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }">
+                                ${sucursal.estado || 'Activo'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex justify-end space-x-2">
+                                ${sucursal.latitud && sucursal.longitud ? 
+                                    `<button onclick="sucursalesManager.viewOnMap(${sucursal.latitud}, ${sucursal.longitud})" 
+                                             class="text-blue-600 hover:text-blue-900" title="Ver en mapa">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                    </button>` : 
+                                    ''
+                                }
+                                <button onclick="sucursalesManager.editSucursal(${sucursal.id_sucursal})" 
+                                        class="text-indigo-600 hover:text-indigo-900" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="sucursalesManager.deleteSucursal(${sucursal.id_sucursal})" 
+                                        class="text-red-600 hover:text-red-900" title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            renderPagination(pagination) {
+                const container = document.getElementById('pagination-container');
+                
+                if (pagination.totalPages <= 1) {
+                    container.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-sm text-gray-700">
+                                ${pagination.totalItems} sucursal${pagination.totalItems !== 1 ? 'es' : ''} total
+                            </p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let paginationHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 flex justify-between sm:hidden">
+                            <button onclick="sucursalesManager.changePage(${pagination.currentPage - 1})" 
+                                    ${pagination.currentPage <= 1 ? 'disabled' : ''}
+                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${pagination.currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''}">
+                                Anterior
+                            </button>
+                            <button onclick="sucursalesManager.changePage(${pagination.currentPage + 1})" 
+                                    ${pagination.currentPage >= pagination.totalPages ? 'disabled' : ''}
+                                    class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${pagination.currentPage >= pagination.totalPages ? 'opacity-50 cursor-not-allowed' : ''}">
+                                Siguiente
+                            </button>
+                        </div>
+                        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    Mostrando página <span class="font-medium">${pagination.currentPage}</span> 
+                                    de <span class="font-medium">${pagination.totalPages}</span>
+                                    (<span class="font-medium">${pagination.totalItems}</span> sucursales total)
+                                </p>
+                            </div>
+                            <div>
+                                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                `;
+
+                // Botón anterior
+                paginationHTML += `
+                    <button onclick="sucursalesManager.changePage(${pagination.currentPage - 1})" 
+                            ${pagination.currentPage <= 1 ? 'disabled' : ''}
+                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${pagination.currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''}">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                `;
+
+                // Números de página
+                for (let i = 1; i <= pagination.totalPages; i++) {
+                    if (i === pagination.currentPage) {
+                        paginationHTML += `
+                            <button class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">
+                                ${i}
+                            </button>
+                        `;
+                    } else {
+                        paginationHTML += `
+                            <button onclick="sucursalesManager.changePage(${i})" 
+                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                ${i}
+                            </button>
+                        `;
+                    }
+                }
+
+                // Botón siguiente
+                paginationHTML += `
+                    <button onclick="sucursalesManager.changePage(${pagination.currentPage + 1})" 
+                            ${pagination.currentPage >= pagination.totalPages ? 'disabled' : ''}
+                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${pagination.currentPage >= pagination.totalPages ? 'opacity-50 cursor-not-allowed' : ''}">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                `;
+
+                paginationHTML += `
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.innerHTML = paginationHTML;
+            }
+
+            changePage(page) {
+                if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+                    this.currentPage = page;
+                    this.loadSucursales();
+                }
+            }
+
+            openCreateModal() {
+                this.editingId = null;
+                document.getElementById('modal-title').textContent = 'Nueva Sucursal';
+                document.getElementById('submit-text').textContent = 'Guardar';
+                document.getElementById('sucursal-form').reset();
+                document.getElementById('sucursal-modal').classList.remove('hidden');
+                
+                // Enfocar el campo nombre
+                setTimeout(() => {
+                    document.getElementById('nombre').focus();
+                }, 100);
+            }
+
+            async editSucursal(id) {
+                try {
+                    const response = await api.get(`/sucursales/${id}`);
+                    const sucursal = response.data;
+
+                    this.editingId = id;
+                    document.getElementById('modal-title').textContent = 'Editar Sucursal';
+                    document.getElementById('submit-text').textContent = 'Actualizar';
+
+                    // Llenar formulario
+                    const form = document.getElementById('sucursal-form');
+                    Object.keys(sucursal).forEach(key => {
+                        const input = form.querySelector(`[name="${key}"]`);
+                        if (input) {
+                            input.value = sucursal[key] || '';
+                        }
+                    });
+
+                    document.getElementById('sucursal-modal').classList.remove('hidden');
+
+                    // Enfocar el campo nombre
+                    setTimeout(() => {
+                        document.getElementById('nombre').focus();
+                    }, 100);
+
+                } catch (error) {
+                    console.error('Error loading sucursal:', error);
+                    this.showToast('Error al cargar sucursal', 'error');
+                }
+            }
+
+            async handleSubmit() {
+                try {
+                    const formData = new FormData(document.getElementById('sucursal-form'));
+                    const data = {};
+                    
+                    for (let [key, value] of formData.entries()) {
+                        if (value.trim() !== '') {
+                            data[key] = value.trim();
+                        }
+                    }
+
+                    // Validaciones
+                    if (!data.nombre) {
+                        this.showToast('El nombre es requerido', 'error');
+                        return;
+                    }
+
+                    if (!data.direccion) {
+                        this.showToast('La dirección es requerida', 'error');
+                        return;
+                    }
+
+                    if (!data.departamento) {
+                        this.showToast('El departamento es requerido', 'error');
+                        return;
+                    }
+
+                    if (!data.ciudad) {
+                        this.showToast('La ciudad es requerida', 'error');
+                        return;
+                    }
+
+                    if (this.editingId) {
+                        await api.put(`/sucursales/${this.editingId}`, data);
+                        this.showToast('Sucursal actualizada correctamente', 'success');
+                    } else {
+                        await api.post('/sucursales', data);
+                        this.showToast('Sucursal creada correctamente', 'success');
+                    }
+
+                    this.closeModal();
+                    this.loadSucursales();
+
+                } catch (error) {
+                    console.error('Error saving sucursal:', error);
+                    const message = error.response?.data?.message || 'Error al guardar sucursal';
+                    this.showToast(message, 'error');
+                }
+            }
+
+            async deleteSucursal(id) {
+                if (!confirm('¿Estás seguro de que quieres eliminar esta sucursal? Esta acción no se puede deshacer.')) {
+                    return;
+                }
+
+                try {
+                    await api.delete(`/sucursales/${id}`);
+                    this.showToast('Sucursal eliminada correctamente', 'success');
+                    this.loadSucursales();
+                } catch (error) {
+                    console.error('Error deleting sucursal:', error);
+                    const message = error.response?.data?.message || 'Error al eliminar sucursal';
+                    this.showToast(message, 'error');
+                }
+            }
+
+            viewOnMap(lat, lng) {
+                const url = `https://www.google.com/maps?q=${lat},${lng}`;
+                window.open(url, '_blank');
+            }
+
+            closeModal() {
+                document.getElementById('sucursal-modal').classList.add('hidden');
+                this.editingId = null;
+            }
+
+            showToast(message, type = 'info') {
+                // Remover toast anterior si existe
+                const existingToast = document.querySelector('.toast-notification');
+                if (existingToast) {
+                    existingToast.remove();
+                }
+
+                // Crear toast notification
+                const toast = document.createElement('div');
+                toast.className = `toast-notification fixed top-4 right-4 z-50 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto transform transition-all duration-300 ${
+                    type === 'success' ? 'border-l-4 border-green-400' :
+                    type === 'error' ? 'border-l-4 border-red-400' :
+                    'border-l-4 border-blue-400'
+                }`;
+                
+                toast.innerHTML = `
+                    <div class="p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="fas ${
+                                    type === 'success' ? 'fa-check-circle text-green-400' :
+                                    type === 'error' ? 'fa-exclamation-circle text-red-400' :
+                                    'fa-info-circle text-blue-400'
+                                }"></i>
+                            </div>
+                            <div class="ml-3 w-0 flex-1">
+                                <p class="text-sm font-medium text-gray-900">${message}</p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0 flex">
+                                <button class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-600 focus:outline-none" onclick="this.parentElement.parentElement.parentElement.parentElement.remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(toast);
+                
+                // Animar entrada
+                setTimeout(() => {
+                    toast.style.transform = 'translateX(0)';
+                }, 10);
+                
+                // Auto-remover después de 5 segundos
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.style.transform = 'translateX(100%)';
+                        setTimeout(() => {
+                            toast.remove();
+                        }, 300);
+                    }
+                }, 5000);
+            }
+        }
+
+        // Funciones globales
+        function openCreateModal() {
+            sucursalesManager.openCreateModal();
+        }
+
+        function closeModal() {
+            sucursalesManager.closeModal();
+        }
+
+        function refreshSucursales() {
+            sucursalesManager.currentPage = 1;
+            sucursalesManager.currentSearch = '';
+            document.getElementById('search-input').value = '';
+            sucursalesManager.loadSucursales();
+        }
+
+        // Inicializar cuando el DOM esté listo
+        let sucursalesManager;
+        document.addEventListener('DOMContentLoaded', () => {
+            sucursalesManager = new SucursalesManager();
+        });
+    </script>
+
+    <style>
+        .toast-notification {
+            transform: translateX(100%);
+        }
+    </style>
 </body>
 </html>

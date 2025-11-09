@@ -5,149 +5,137 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Categorías - Sistema Paints</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'paint-blue': '#2563eb',
-                        'paint-orange': '#f97316'
-                    }
-                }
-            }
-        }
-    </script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white shadow-sm border-b">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center space-x-3">
-                    <i class="fas fa-paint-brush text-paint-blue text-2xl"></i>
-                    <h1 class="text-xl font-bold text-gray-900">Sistema Paints</h1>
-                </div>
-                
-                <nav class="flex items-center space-x-6">
-                    <a href="dashboard.html" class="text-gray-600 hover:text-paint-blue">Dashboard</a>
-                    <a href="sucursales.html" class="text-gray-600 hover:text-paint-blue">Sucursales</a>
-                    <a href="categorias.html" class="text-green-600 font-medium">Categorías</a>
-                    <a href="productos.html" class="text-gray-600 hover:text-paint-blue">Productos</a>
-                    
-                    <div class="relative">
-                        <button id="profileDropdownBtn" class="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
-                            <span data-user-name>Usuario</span>
-                            <i class="fas fa-chevron-down text-xs"></i>
-                        </button>
-                        
-                        <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                            <a href="#" onclick="logout()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
-                            </a>
-                        </div>
+<body class="bg-gray-100">
+    <!-- Navegación se inyecta automáticamente -->
+
+    <!-- Contenido principal -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <!-- Encabezado -->
+            <div class="mb-8">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900 flex items-center">
+                            <i class="fas fa-tags mr-3 text-green-600"></i>
+                            Gestión de Categorías
+                        </h1>
+                        <p class="mt-1 text-sm text-gray-600">Administra las categorías de productos</p>
                     </div>
-                </nav>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Page Header -->
-        <div class="mb-8">
-            <h2 class="text-2xl font-bold text-gray-900 mb-2">Gestión de Categorías</h2>
-            <p class="text-gray-600">Administra las categorías de productos</p>
-        </div>
-
-        <!-- Alert Messages -->
-        <div id="alertMessage" class="hidden mb-6 p-4 rounded-lg"></div>
-
-        <!-- Actions Bar -->
-        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                    <div class="relative">
-                        <input type="text" 
-                               id="searchInput" 
-                               placeholder="Buscar categorías..."
-                               class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                    </div>
-                    <button onclick="loadCategorias()" 
-                            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-                        <i class="fas fa-sync-alt mr-2"></i>Actualizar
+                    <button onclick="openCreateModal()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center">
+                        <i class="fas fa-plus mr-2"></i>
+                        Nueva Categoría
                     </button>
                 </div>
-                
-                <button data-require-profile="Gerente,Digitador"
-                        onclick="showCreateModal()" 
-                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                    <i class="fas fa-plus mr-2"></i>Nueva Categoría
-                </button>
             </div>
-        </div>
 
-        <!-- Loading -->
-        <div id="loading" class="hidden text-center py-8">
-            <i class="fas fa-spinner fa-spin text-3xl text-green-600"></i>
-            <p class="text-gray-600 mt-2">Cargando categorías...</p>
-        </div>
-
-        <!-- Categorías Grid -->
-        <div id="categoriasGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Data will be loaded here -->
-        </div>
-
-        <!-- Pagination -->
-        <div id="pagination" class="hidden mt-6 flex items-center justify-between">
-            <div class="text-sm text-gray-700">
-                Mostrando <span id="paginationInfo">0</span> resultados
+            <!-- Controles de búsqueda -->
+            <div class="bg-white p-4 rounded-lg shadow mb-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0 md:space-x-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-search mr-1"></i>Buscar categorías
+                        </label>
+                        <input type="text" 
+                               id="search-input" 
+                               placeholder="Buscar por nombre o descripción..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    </div>
+                    <div class="flex space-x-3">
+                        <button onclick="refreshCategorias()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors duration-200 flex items-center">
+                            <i class="fas fa-sync-alt mr-2"></i>Actualizar
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="flex space-x-2">
-                <button id="prevBtn" onclick="changePage(-1)" 
-                        class="px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">
-                    Anterior
-                </button>
-                <span id="pageInfo" class="px-3 py-2 text-gray-700">Página 1</span>
-                <button id="nextBtn" onclick="changePage(1)" 
-                        class="px-3 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50">
-                    Siguiente
+
+            <!-- Loading state -->
+            <div id="loading" class="text-center py-12">
+                <i class="fas fa-spinner fa-spin text-3xl text-gray-400"></i>
+                <p class="mt-4 text-gray-600">Cargando categorías...</p>
+            </div>
+
+            <!-- Grid de categorías -->
+            <div id="categorias-grid" class="hidden">
+                <div id="categorias-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Categorías se cargan dinámicamente -->
+                </div>
+
+                <!-- Paginación -->
+                <div id="pagination-container" class="mt-8">
+                    <!-- Paginación se carga dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Estado vacío -->
+            <div id="empty-state" class="text-center py-16 hidden">
+                <i class="fas fa-tags text-6xl text-gray-300 mb-6"></i>
+                <h3 class="text-xl font-medium text-gray-900 mb-4">No hay categorías</h3>
+                <p class="text-gray-500 mb-8">Comienza creando la primera categoría para organizar tus productos</p>
+                <button onclick="openCreateModal()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-plus mr-2"></i>Crear Primera Categoría
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Create/Edit Modal -->
-    <div id="categoriaModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3">
-                <h3 id="modalTitle" class="text-lg font-bold text-gray-900 mb-4">Nueva Categoría</h3>
-                <form id="categoriaForm">
-                    <input type="hidden" id="categoriaId">
-                    
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
-                        <input type="text" id="nombre" required maxlength="50"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+    <!-- Modal para crear/editar categoría -->
+    <div id="categoria-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <form id="categoria-form">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="w-full">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" id="modal-title">
+                                    Nueva Categoría
+                                </h3>
+
+                                <!-- Nombre -->
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Nombre <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" 
+                                           name="nombre" 
+                                           id="nombre"
+                                           required
+                                           placeholder="Ej: Pinturas, Barnices, Accesorios..."
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <p class="mt-1 text-xs text-gray-500">El nombre debe ser único y descriptivo</p>
+                                </div>
+
+                                <!-- Descripción -->
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                                    <textarea name="descripcion" 
+                                              id="descripcion"
+                                              rows="4"
+                                              placeholder="Describe qué productos incluye esta categoría..."
+                                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
+                                    <p class="mt-1 text-xs text-gray-500">Opcional: ayuda a los usuarios a entender qué productos incluye</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
-                        <textarea id="descripcion" rows="3" maxlength="200"
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                                  placeholder="Descripción opcional de la categoría"></textarea>
-                        <div class="text-xs text-gray-500 mt-1">Máximo 200 caracteres</div>
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" onclick="closeModal()" 
-                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
-                            Cancelar
-                        </button>
+
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                         <button type="submit" 
-                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                            <span id="submitBtnText">Guardar</span>
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            <i class="fas fa-save mr-2"></i>
+                            <span id="submit-text">Guardar</span>
+                        </button>
+                        <button type="button" 
+                                onclick="closeModal()"
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancelar
                         </button>
                     </div>
                 </form>
@@ -156,8 +144,390 @@
     </div>
 
     <!-- Scripts -->
-    <script src="../assets/js/api.js"></script>
-    <script src="../assets/js/auth.js"></script>
-    <script src="../assets/js/categorias.js"></script>
+    <script src="/components/navbar.js"></script>
+    <script src="/assets/js/api.js"></script>
+    <script>
+        class CategoriasManager {
+            constructor() {
+                this.currentPage = 1;
+                this.totalPages = 1;
+                this.currentSearch = '';
+                this.editingId = null;
+                this.init();
+            }
+
+            async init() {
+                await this.loadCategorias();
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // Búsqueda
+                const searchInput = document.getElementById('search-input');
+                let searchTimeout;
+                
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        this.currentSearch = e.target.value;
+                        this.currentPage = 1;
+                        this.loadCategorias();
+                    }, 300);
+                });
+
+                // Formulario
+                document.getElementById('categoria-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleSubmit();
+                });
+            }
+
+            async loadCategorias() {
+                try {
+                    document.getElementById('loading').classList.remove('hidden');
+                    document.getElementById('categorias-grid').classList.add('hidden');
+                    document.getElementById('empty-state').classList.add('hidden');
+
+                    const params = new URLSearchParams({
+                        page: this.currentPage,
+                        limit: 12
+                    });
+
+                    if (this.currentSearch) {
+                        params.append('search', this.currentSearch);
+                    }
+
+                    const response = await api.get(`/categorias?${params}`);
+                    const { categorias, pagination } = response.data;
+
+                    document.getElementById('loading').classList.add('hidden');
+
+                    if (!categorias || categorias.length === 0) {
+                        document.getElementById('empty-state').classList.remove('hidden');
+                        return;
+                    }
+
+                    this.totalPages = pagination.totalPages;
+                    this.renderCategorias(categorias);
+                    this.renderPagination(pagination);
+
+                    document.getElementById('categorias-grid').classList.remove('hidden');
+
+                } catch (error) {
+                    document.getElementById('loading').classList.add('hidden');
+                    console.error('Error loading categorias:', error);
+                    this.showToast('Error al cargar categorías', 'error');
+                }
+            }
+
+            renderCategorias(categorias) {
+                const container = document.getElementById('categorias-container');
+                container.innerHTML = categorias.map(categoria => `
+                    <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow duration-300">
+                        <div class="px-6 py-8">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-tag text-xl text-green-600"></i>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button onclick="categoriasManager.editCategoria(${categoria.id_categoria})" 
+                                            class="text-gray-400 hover:text-blue-600 transition-colors">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="categoriasManager.deleteCategoria(${categoria.id_categoria})" 
+                                            class="text-gray-400 hover:text-red-600 transition-colors">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2">${categoria.nombre}</h3>
+                                <p class="text-sm text-gray-600 line-clamp-3">
+                                    ${categoria.descripcion || 'Sin descripción disponible'}
+                                </p>
+                            </div>
+                            
+                            <div class="border-t pt-4">
+                                <div class="flex items-center justify-between text-sm">
+                                    <div class="flex items-center text-gray-500">
+                                        <i class="fas fa-box mr-1"></i>
+                                        <span>${categoria.total_productos || 0} productos</span>
+                                    </div>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                        categoria.estado === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                    }">
+                                        ${categoria.estado || 'Activo'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            renderPagination(pagination) {
+                const container = document.getElementById('pagination-container');
+                
+                if (pagination.totalPages <= 1) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                let paginationHTML = `
+                    <div class="flex items-center justify-center space-x-2">
+                        <button onclick="categoriasManager.changePage(${pagination.currentPage - 1})" 
+                                ${pagination.currentPage <= 1 ? 'disabled' : ''}
+                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors ${pagination.currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''}">
+                            <i class="fas fa-chevron-left mr-1"></i>
+                            Anterior
+                        </button>
+                        
+                        <div class="hidden sm:flex space-x-2">
+                `;
+
+                // Números de página
+                for (let i = 1; i <= pagination.totalPages; i++) {
+                    if (i === pagination.currentPage) {
+                        paginationHTML += `
+                            <button class="relative inline-flex items-center px-4 py-2 border border-green-500 bg-green-50 text-sm font-medium text-green-600 rounded-md">
+                                ${i}
+                            </button>
+                        `;
+                    } else if (i === 1 || i === pagination.totalPages || Math.abs(i - pagination.currentPage) <= 2) {
+                        paginationHTML += `
+                            <button onclick="categoriasManager.changePage(${i})" 
+                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+                                ${i}
+                            </button>
+                        `;
+                    } else if (Math.abs(i - pagination.currentPage) === 3) {
+                        paginationHTML += `<span class="px-2 text-gray-500">...</span>`;
+                    }
+                }
+
+                paginationHTML += `
+                        </div>
+                        
+                        <button onclick="categoriasManager.changePage(${pagination.currentPage + 1})" 
+                                ${pagination.currentPage >= pagination.totalPages ? 'disabled' : ''}
+                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors ${pagination.currentPage >= pagination.totalPages ? 'opacity-50 cursor-not-allowed' : ''}">
+                            Siguiente
+                            <i class="fas fa-chevron-right ml-1"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <p class="text-sm text-gray-700">
+                            Mostrando página <span class="font-medium">${pagination.currentPage}</span> 
+                            de <span class="font-medium">${pagination.totalPages}</span>
+                            (<span class="font-medium">${pagination.totalItems}</span> categorías total)
+                        </p>
+                    </div>
+                `;
+
+                container.innerHTML = paginationHTML;
+            }
+
+            changePage(page) {
+                if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+                    this.currentPage = page;
+                    this.loadCategorias();
+                }
+            }
+
+            openCreateModal() {
+                this.editingId = null;
+                document.getElementById('modal-title').textContent = 'Nueva Categoría';
+                document.getElementById('submit-text').textContent = 'Guardar';
+                document.getElementById('categoria-form').reset();
+                document.getElementById('categoria-modal').classList.remove('hidden');
+                
+                // Enfocar el campo nombre
+                setTimeout(() => {
+                    document.getElementById('nombre').focus();
+                }, 100);
+            }
+
+            async editCategoria(id) {
+                try {
+                    const response = await api.get(`/categorias/${id}`);
+                    const categoria = response.data;
+
+                    this.editingId = id;
+                    document.getElementById('modal-title').textContent = 'Editar Categoría';
+                    document.getElementById('submit-text').textContent = 'Actualizar';
+
+                    // Llenar formulario
+                    document.getElementById('nombre').value = categoria.nombre || '';
+                    document.getElementById('descripcion').value = categoria.descripcion || '';
+
+                    document.getElementById('categoria-modal').classList.remove('hidden');
+
+                    // Enfocar el campo nombre
+                    setTimeout(() => {
+                        document.getElementById('nombre').focus();
+                    }, 100);
+
+                } catch (error) {
+                    console.error('Error loading categoria:', error);
+                    this.showToast('Error al cargar categoría', 'error');
+                }
+            }
+
+            async handleSubmit() {
+                try {
+                    const formData = new FormData(document.getElementById('categoria-form'));
+                    const data = {
+                        nombre: formData.get('nombre').trim(),
+                        descripcion: formData.get('descripcion').trim()
+                    };
+
+                    // Validaciones frontend
+                    if (!data.nombre) {
+                        this.showToast('El nombre es requerido', 'error');
+                        return;
+                    }
+
+                    if (data.nombre.length < 2) {
+                        this.showToast('El nombre debe tener al menos 2 caracteres', 'error');
+                        return;
+                    }
+
+                    if (data.nombre.length > 100) {
+                        this.showToast('El nombre no puede exceder 100 caracteres', 'error');
+                        return;
+                    }
+
+                    if (this.editingId) {
+                        await api.put(`/categorias/${this.editingId}`, data);
+                        this.showToast('Categoría actualizada correctamente', 'success');
+                    } else {
+                        await api.post('/categorias', data);
+                        this.showToast('Categoría creada correctamente', 'success');
+                    }
+
+                    this.closeModal();
+                    this.loadCategorias();
+
+                } catch (error) {
+                    console.error('Error saving categoria:', error);
+                    const message = error.response?.data?.message || 'Error al guardar categoría';
+                    this.showToast(message, 'error');
+                }
+            }
+
+            async deleteCategoria(id) {
+                if (!confirm('¿Estás seguro de que quieres eliminar esta categoría? Esta acción no se puede deshacer.')) {
+                    return;
+                }
+
+                try {
+                    await api.delete(`/categorias/${id}`);
+                    this.showToast('Categoría eliminada correctamente', 'success');
+                    this.loadCategorias();
+                } catch (error) {
+                    console.error('Error deleting categoria:', error);
+                    const message = error.response?.data?.message || 'Error al eliminar categoría';
+                    this.showToast(message, 'error');
+                }
+            }
+
+            closeModal() {
+                document.getElementById('categoria-modal').classList.add('hidden');
+                this.editingId = null;
+            }
+
+            showToast(message, type = 'info') {
+                // Remover toast anterior si existe
+                const existingToast = document.querySelector('.toast-notification');
+                if (existingToast) {
+                    existingToast.remove();
+                }
+
+                // Crear nuevo toast
+                const toast = document.createElement('div');
+                toast.className = `toast-notification fixed top-4 right-4 z-50 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto transform transition-all duration-300 ${
+                    type === 'success' ? 'border-l-4 border-green-400' :
+                    type === 'error' ? 'border-l-4 border-red-400' :
+                    'border-l-4 border-blue-400'
+                }`;
+                
+                toast.innerHTML = `
+                    <div class="p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="fas ${
+                                    type === 'success' ? 'fa-check-circle text-green-400' :
+                                    type === 'error' ? 'fa-exclamation-circle text-red-400' :
+                                    'fa-info-circle text-blue-400'
+                                }"></i>
+                            </div>
+                            <div class="ml-3 w-0 flex-1">
+                                <p class="text-sm font-medium text-gray-900">${message}</p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0 flex">
+                                <button class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-600 focus:outline-none" onclick="this.parentElement.parentElement.parentElement.parentElement.remove()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(toast);
+                
+                // Animar entrada
+                setTimeout(() => {
+                    toast.style.transform = 'translateX(0)';
+                }, 10);
+                
+                // Auto-remover después de 5 segundos
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.style.transform = 'translateX(100%)';
+                        setTimeout(() => {
+                            toast.remove();
+                        }, 300);
+                    }
+                }, 5000);
+            }
+        }
+
+        // Funciones globales
+        function openCreateModal() {
+            categoriasManager.openCreateModal();
+        }
+
+        function closeModal() {
+            categoriasManager.closeModal();
+        }
+
+        function refreshCategorias() {
+            categoriasManager.currentPage = 1;
+            categoriasManager.currentSearch = '';
+            document.getElementById('search-input').value = '';
+            categoriasManager.loadCategorias();
+        }
+
+        // Inicializar cuando el DOM esté listo
+        let categoriasManager;
+        document.addEventListener('DOMContentLoaded', () => {
+            categoriasManager = new CategoriasManager();
+        });
+    </script>
+
+    <style>
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .toast-notification {
+            transform: translateX(100%);
+        }
+    </style>
 </body>
 </html>

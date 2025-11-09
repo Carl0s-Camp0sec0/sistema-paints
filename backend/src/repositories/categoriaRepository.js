@@ -1,20 +1,20 @@
-// backend/src/repositories/categoriaRepository.js
+// backend/src/repositories/categoriaRepository.js - VERSIÓN CORREGIDA COMPLETA
 const { executeQuery } = require('../config/database');
 
 class CategoriaRepository {
   
-  // Obtener todas las categorías activas
-  static async findAll(page = 1, limit = 10, search = '') {
+  // Obtener todas las categorías con paginación - CORREGIDO
+  static async findAll(page = 1, limit = 12, search = '') {
     try {
       const offset = (page - 1) * limit;
       
-      let whereClause = 'WHERE estado = TRUE';
-      let searchParams = [];
+      let whereClause = 'WHERE estado = ?';
+      let searchParams = ['Activo'];
       
       if (search) {
         whereClause += ' AND (nombre LIKE ? OR descripcion LIKE ?)';
         const searchTerm = `%${search}%`;
-        searchParams = [searchTerm, searchTerm];
+        searchParams.push(searchTerm, searchTerm);
       }
       
       const sqlCount = `
@@ -28,16 +28,21 @@ class CategoriaRepository {
           id_categoria,
           nombre,
           descripcion,
-          estado
+          estado,
+          created_at,
+          updated_at,
+          (SELECT COUNT(*) FROM productos p WHERE p.id_categoria = categorias_productos.id_categoria AND p.estado = 'Activo') as total_productos
         FROM categorias_productos
         ${whereClause}
         ORDER BY nombre ASC
         LIMIT ? OFFSET ?
       `;
       
+      const params = [...searchParams, limit, offset];
+      
       const [countResult, categorias] = await Promise.all([
         executeQuery(sqlCount, searchParams),
-        executeQuery(sql, [...searchParams, limit, offset])
+        executeQuery(sql, params)
       ]);
       
       return {
@@ -50,7 +55,7 @@ class CategoriaRepository {
     }
   }
 
-  // Buscar categoría por ID
+  // Buscar categoría por ID - CORREGIDO
   static async findById(id) {
     try {
       const sql = `
@@ -58,12 +63,14 @@ class CategoriaRepository {
           id_categoria,
           nombre,
           descripcion,
-          estado
+          estado,
+          created_at,
+          updated_at
         FROM categorias_productos
-        WHERE id_categoria = ? AND estado = TRUE
+        WHERE id_categoria = ? AND estado = ?
       `;
       
-      const result = await executeQuery(sql, [id]);
+      const result = await executeQuery(sql, [id, 'Activo']);
       return result.length > 0 ? result[0] : null;
     } catch (error) {
       console.error('Error en findById categoría:', error);
@@ -71,18 +78,18 @@ class CategoriaRepository {
     }
   }
 
-  // Crear nueva categoría
+  // Crear nueva categoría - CORREGIDO
   static async create(categoriaData) {
     try {
       const sql = `
-        INSERT INTO categorias_productos (
-          nombre, descripcion, estado
-        ) VALUES (?, ?, TRUE)
+        INSERT INTO categorias_productos (nombre, descripcion, estado)
+        VALUES (?, ?, ?)
       `;
       
       const result = await executeQuery(sql, [
         categoriaData.nombre,
-        categoriaData.descripcion || null
+        categoriaData.descripcion || null,
+        'Activo'
       ]);
       
       return result.insertId;
@@ -92,7 +99,7 @@ class CategoriaRepository {
     }
   }
 
-  // Actualizar categoría
+  // Actualizar categoría - CORREGIDO
   static async update(id, categoriaData) {
     try {
       const fields = [];
@@ -117,8 +124,10 @@ class CategoriaRepository {
       const sql = `
         UPDATE categorias_productos 
         SET ${fields.join(', ')}
-        WHERE id_categoria = ? AND estado = TRUE
+        WHERE id_categoria = ? AND estado = ?
       `;
+      
+      values.push('Activo');
       
       const result = await executeQuery(sql, values);
       return result.affectedRows > 0;
@@ -128,16 +137,22 @@ class CategoriaRepository {
     }
   }
 
-  // Desactivar categoría (soft delete)
+  // Desactivar categoría (soft delete) - CORREGIDO
   static async delete(id) {
     try {
+      // Primero verificar si tiene productos asociados
+      const hasProducts = await this.hasProducts(id);
+      if (hasProducts) {
+        throw new Error('No se puede eliminar la categoría porque tiene productos asociados');
+      }
+
       const sql = `
         UPDATE categorias_productos 
-        SET estado = FALSE
+        SET estado = ?
         WHERE id_categoria = ?
       `;
       
-      const result = await executeQuery(sql, [id]);
+      const result = await executeQuery(sql, ['Inactivo', id]);
       return result.affectedRows > 0;
     } catch (error) {
       console.error('Error en delete categoría:', error);
@@ -145,15 +160,15 @@ class CategoriaRepository {
     }
   }
 
-  // Verificar si existe categoría por nombre
+  // Verificar si existe categoría por nombre - CORREGIDO
   static async existsByName(nombre, excludeId = null) {
     try {
       let sql = `
         SELECT COUNT(*) as count
         FROM categorias_productos
-        WHERE nombre = ? AND estado = TRUE
+        WHERE nombre = ? AND estado = ?
       `;
-      let params = [nombre];
+      let params = [nombre, 'Activo'];
       
       if (excludeId) {
         sql += ' AND id_categoria != ?';
@@ -168,7 +183,7 @@ class CategoriaRepository {
     }
   }
 
-  // Obtener categorías para select/dropdown
+  // Obtener categorías para select/dropdown - CORREGIDO
   static async getForSelect() {
     try {
       const sql = `
@@ -176,27 +191,27 @@ class CategoriaRepository {
           id_categoria,
           nombre
         FROM categorias_productos
-        WHERE estado = TRUE
+        WHERE estado = ?
         ORDER BY nombre ASC
       `;
       
-      return await executeQuery(sql);
+      return await executeQuery(sql, ['Activo']);
     } catch (error) {
       console.error('Error en getForSelect categorías:', error);
       throw error;
     }
   }
 
-  // Verificar si la categoría tiene productos asociados
+  // Verificar si la categoría tiene productos asociados - CORREGIDO
   static async hasProducts(id) {
     try {
       const sql = `
         SELECT COUNT(*) as count
         FROM productos
-        WHERE id_categoria = ? AND estado = TRUE
+        WHERE id_categoria = ? AND estado = ?
       `;
       
-      const result = await executeQuery(sql, [id]);
+      const result = await executeQuery(sql, [id, 'Activo']);
       return result[0].count > 0;
     } catch (error) {
       console.error('Error en hasProducts:', error);
@@ -204,26 +219,22 @@ class CategoriaRepository {
     }
   }
 
-  // Obtener estadísticas de categorías
-  static async getStats() {
+  // Obtener estadísticas de la categoría
+  static async getStats(id) {
     try {
       const sql = `
         SELECT 
-          c.id_categoria,
-          c.nombre,
-          COUNT(p.id_producto) as total_productos,
-          COALESCE(SUM(sb.cantidad_actual), 0) as stock_total
-        FROM categorias_productos c
-        LEFT JOIN productos p ON c.id_categoria = p.id_categoria AND p.estado = TRUE
-        LEFT JOIN stock_bodega sb ON p.id_producto = sb.id_producto
-        WHERE c.estado = TRUE
-        GROUP BY c.id_categoria, c.nombre
-        ORDER BY c.nombre ASC
+          COUNT(*) as total_productos,
+          COALESCE(SUM(p.stock_actual), 0) as total_stock,
+          COALESCE(AVG(p.precio_venta), 0) as precio_promedio
+        FROM productos p
+        WHERE p.id_categoria = ? AND p.estado = ?
       `;
       
-      return await executeQuery(sql);
+      const result = await executeQuery(sql, [id, 'Activo']);
+      return result[0];
     } catch (error) {
-      console.error('Error en getStats categorías:', error);
+      console.error('Error en getStats categoría:', error);
       throw error;
     }
   }
