@@ -1,4 +1,4 @@
-// backend/src/controllers/productoController.js - VERSIÓN CORREGIDA PARA TU BD ACTUAL
+// backend/src/controllers/productoController.js - ADAPTADO A TU BD REAL
 const ProductoRepository = require('../repositories/productoRepository');
 const { responseSuccess, responseError } = require('../utils/responses');
 
@@ -12,7 +12,7 @@ class ProductoController {
         limit = 10, 
         search = '', 
         categoria, 
-        estado = 'activo',
+        estado = 'Activo', // Cambiado a 'Activo' (con mayúscula) según tu BD
         orderBy = 'nombre',
         orderDir = 'ASC'
       } = req.query;
@@ -49,7 +49,7 @@ class ProductoController {
       const { categoria } = req.query;
       
       const filters = {
-        estado: 'activo',
+        estado: 'Activo', // Cambiado a 'Activo'
         categoria: categoria ? parseInt(categoria) : null
       };
 
@@ -208,7 +208,7 @@ class ProductoController {
       }
       
       if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-        return responseError(res, 'Categoría o unidad de medida no válida', 400);
+        return responseError(res, 'Categoría, unidad de medida o color no válido', 400);
       }
       
       return responseError(res, 'Error al crear producto', 500);
@@ -245,10 +245,16 @@ class ProductoController {
         return responseError(res, 'El precio de venta debe ser un número válido mayor o igual a 0', 400);
       }
 
-      // Limpiar y preparar datos
+      // Limpiar y preparar datos (solo incluir campos que existen en la BD)
+      const allowedFields = [
+        'codigo', 'nombre', 'descripcion', 'id_categoria', 'precio_venta',
+        'descuento_porcentaje', 'id_unidad_medida', 'id_color', 'stock_minimo',
+        'stock_actual', 'duracion_anos', 'cobertura_m2', 'estado'
+      ];
+
       const cleanData = {};
       Object.keys(updateData).forEach(key => {
-        if (updateData[key] !== undefined && updateData[key] !== '') {
+        if (allowedFields.includes(key) && updateData[key] !== undefined && updateData[key] !== '') {
           cleanData[key] = updateData[key];
         }
       });
@@ -271,7 +277,7 @@ class ProductoController {
       }
       
       if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-        return responseError(res, 'Categoría o unidad de medida no válida', 400);
+        return responseError(res, 'Categoría, unidad de medida o color no válido', 400);
       }
       
       return responseError(res, 'Error al actualizar producto', 500);

@@ -1,108 +1,99 @@
-// backend/src/controllers/authController.js - VERSIÓN FINAL SIN ERRORES
-const { responseSuccess, responseError } = require('../utils/responses');
-const { executeQuery } = require('../config/database');
-const { generateToken } = require('../middleware/auth');
+// backend/src/controllers/authController.js - CORREGIDO PARA LOGOUT
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { executeQuery } = require('../config/database');
+const { jwtConfig, cookieConfig } = require('../config/jwt');
+const { responseSuccess, responseError } = require('../utils/responses');
 
 class AuthController {
   
-  /**
-   * Login de usuario - CORREGIDO SIN ERROR DE THIS
-   */
+  // Método de login
   static async login(req, res) {
     try {
       const { username, password } = req.body;
 
-      // Validar datos de entrada
+      // Validar entrada
       if (!username || !password) {
-        return responseError(res, 'Username y password son requeridos', 400);
+        return responseError(res, 'Usuario y contraseña son requeridos', 400);
       }
 
-      // Buscar usuario en base de datos - CONSULTA CORREGIDA
-      const userQuery = `
+      // Buscar usuario en la base de datos
+      const query = `
         SELECT 
           u.id_usuario,
           u.username,
           u.password_hash,
           u.salt,
-          u.perfil_usuario,
-          u.estado,
-          u.intentos_login,
+          u.perfil_usuario as rol,
           u.nombre_completo,
-          u.id_empleado,
-          COALESCE(e.nombres, '') as nombres,
-          COALESCE(e.apellidos, '') as apellidos,
-          COALESCE(e.id_sucursal, NULL) as id_sucursal,
-          COALESCE(s.nombre, 'Sin sucursal') as sucursal_nombre
+          u.email,
+          u.estado,
+          e.id_sucursal,
+          s.nombre as sucursal_nombre
         FROM usuarios u
-        LEFT JOIN empleados e ON u.id_empleado = e.id_empleado
+        LEFT JOIN empleados e ON u.id_empleado = e.id_empleado  
         LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
-        WHERE u.username = ?
+        WHERE u.username = ? AND u.estado = 1
       `;
 
-      const users = await executeQuery(userQuery, [username]);
+      const usuarios = await executeQuery(query, [username]);
 
-      if (!users || users.length === 0) {
-        return responseError(res, 'Credenciales inválidas', 401);
+      if (usuarios.length === 0) {
+        return responseError(res, 'Usuario no encontrado o inactivo', 401);
       }
 
-      const user = users[0];
+      const usuario = usuarios[0];
 
-      // Verificar si el usuario está activo
-      if (!user.estado) {
-        return responseError(res, 'Usuario desactivado', 401);
+      // Verificar contraseña usando el método de hash de tu BD
+      const passwordToVerify = crypto
+        .createHash('sha256')
+        .update(password + usuario.salt)
+        .digest('hex');
+
+      if (passwordToVerify !== usuario.password_hash) {
+        return responseError(res, 'Contraseña incorrecta', 401);
       }
 
-      // Verificar intentos de login excesivos
-      if (user.intentos_login >= 5) {
-        return responseError(res, 'Cuenta bloqueada por múltiples intentos fallidos. Contacte al administrador.', 423);
-      }
-
-      // Verificar contraseña - CORRECCIÓN: usar AuthController.verifyPassword
-      const isValidPassword = await AuthController.verifyPassword(password, user.salt, user.password_hash);
-      
-      if (!isValidPassword) {
-        // Incrementar intentos fallidos
-        await executeQuery(
-          'UPDATE usuarios SET intentos_login = intentos_login + 1 WHERE id_usuario = ?',
-          [user.id_usuario]
-        );
-        
-        return responseError(res, 'Credenciales inválidas', 401);
-      }
-
-      // Resetear intentos fallidos y actualizar último acceso
-      await executeQuery(
-        'UPDATE usuarios SET intentos_login = 0, ultimo_acceso = NOW() WHERE id_usuario = ?',
-        [user.id_usuario]
-      );
-
-      // Generar token JWT - CORRECCIÓN: asegurar estructura correcta
-      const tokenData = {
-        id_usuario: user.id_usuario,
-        username: user.username,
-        perfil_usuario: user.perfil_usuario
+      // Generar JWT token
+      const tokenPayload = {
+        id: usuario.id_usuario,
+        id_usuario: usuario.id_usuario,
+        username: usuario.username,
+        nombre: usuario.nombre_completo,
+        nombre_completo: usuario.nombre_completo,
+        email: usuario.email,
+        rol: usuario.rol,
+        perfil_usuario: usuario.rol,
+        id_sucursal: usuario.id_sucursal,
+        sucursal: usuario.sucursal_nombre
       };
 
-      const token = generateToken(tokenData);
-
-      // Configurar cookie con token
-      res.cookie('authToken', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000 // 24 horas
+      const token = jwt.sign(tokenPayload, jwtConfig.secret, {
+        expiresIn: jwtConfig.expiresIn,
+        issuer: jwtConfig.issuer,
+        audience: jwtConfig.audience
       });
 
-      // Respuesta exitosa
-      return responseSuccess(res, 'Login exitoso', {
+      // Actualizar último acceso
+      await executeQuery(
+        'UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = ?',
+        [usuario.id_usuario]
+      );
+
+      // Configurar cookie
+      res.cookie('authToken', token, cookieConfig);
+
+      // Respuesta de éxito
+      return responseSuccess(res, 'Inicio de sesión exitoso', {
         user: {
-          id: user.id_usuario,
-          username: user.username,
-          perfil: user.perfil_usuario,
-          nombre_completo: user.nombre_completo,
-          sucursal: user.sucursal_nombre,
-          id_empleado: user.id_empleado
+          id: usuario.id_usuario,
+          username: usuario.username,
+          nombre: usuario.nombre_completo,
+          email: usuario.email,
+          rol: usuario.rol,
+          id_sucursal: usuario.id_sucursal,
+          sucursal: usuario.sucursal_nombre
         },
         token
       });
@@ -113,64 +104,86 @@ class AuthController {
     }
   }
 
-  /**
-   * Obtener perfil del usuario autenticado - CORREGIDO
-   */
+  // Método de logout corregido
+  static async logout(req, res) {
+    try {
+      // Limpiar cookie de autenticación
+      res.clearCookie('authToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/'
+      });
+
+      // También limpiar cualquier otra cookie relacionada
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', 
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/'
+      });
+
+      console.log('Usuario cerró sesión exitosamente');
+
+      return responseSuccess(res, 'Sesión cerrada exitosamente', {
+        redirectUrl: '/pages/login.html',
+        message: 'Redirigiendo al login...'
+      });
+
+    } catch (error) {
+      console.error('Error en logout:', error);
+      return responseError(res, 'Error al cerrar sesión', 500);
+    }
+  }
+
+  // Obtener perfil del usuario autenticado
   static async getProfile(req, res) {
     try {
-      const user = req.user;
-
-      if (!user) {
+      if (!req.user) {
         return responseError(res, 'Usuario no autenticado', 401);
       }
 
-      // Obtener información completa del usuario - CONSULTA CORREGIDA
-      const userQuery = `
+      // Obtener información completa del usuario
+      const query = `
         SELECT 
           u.id_usuario,
           u.username,
-          u.perfil_usuario,
           u.nombre_completo,
           u.email,
+          u.perfil_usuario as rol,
           u.ultimo_acceso,
-          u.id_empleado,
-          COALESCE(e.nombres, '') as nombres,
-          COALESCE(e.apellidos, '') as apellidos,
-          COALESCE(e.telefono, '') as telefono,
-          COALESCE(e.id_sucursal, NULL) as id_sucursal,
-          COALESCE(s.nombre, 'Sin sucursal') as sucursal_nombre,
-          COALESCE(s.direccion, '') as sucursal_direccion
+          u.fecha_creacion,
+          e.id_sucursal,
+          s.nombre as sucursal_nombre,
+          s.direccion as sucursal_direccion
         FROM usuarios u
         LEFT JOIN empleados e ON u.id_empleado = e.id_empleado
         LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
         WHERE u.id_usuario = ?
       `;
 
-      const users = await executeQuery(userQuery, [user.id_usuario]);
+      const usuarios = await executeQuery(query, [req.user.id]);
 
-      if (!users || users.length === 0) {
+      if (usuarios.length === 0) {
         return responseError(res, 'Usuario no encontrado', 404);
       }
 
-      const userInfo = users[0];
+      const userProfile = usuarios[0];
 
       return responseSuccess(res, 'Perfil obtenido exitosamente', {
-        id: userInfo.id_usuario,
-        username: userInfo.username,
-        perfil: userInfo.perfil_usuario,
-        nombre_completo: userInfo.nombre_completo,
-        email: userInfo.email,
-        ultimo_acceso: userInfo.ultimo_acceso,
-        empleado: {
-          id: userInfo.id_empleado,
-          nombres: userInfo.nombres,
-          apellidos: userInfo.apellidos,
-          telefono: userInfo.telefono
-        },
-        sucursal: {
-          id: userInfo.id_sucursal,
-          nombre: userInfo.sucursal_nombre,
-          direccion: userInfo.sucursal_direccion
+        user: {
+          id: userProfile.id_usuario,
+          username: userProfile.username,
+          nombre: userProfile.nombre_completo,
+          email: userProfile.email,
+          rol: userProfile.rol,
+          ultimo_acceso: userProfile.ultimo_acceso,
+          fecha_creacion: userProfile.fecha_creacion,
+          sucursal: {
+            id: userProfile.id_sucursal,
+            nombre: userProfile.sucursal_nombre,
+            direccion: userProfile.sucursal_direccion
+          }
         }
       });
 
@@ -180,41 +193,44 @@ class AuthController {
     }
   }
 
-  /**
-   * Logout de usuario
-   */
-  static async logout(req, res) {
-    try {
-      // Limpiar cookie
-      res.clearCookie('authToken');
-      
-      return responseSuccess(res, 'Logout exitoso');
-      
-    } catch (error) {
-      console.error('Error en logout:', error);
-      return responseError(res, 'Error al cerrar sesión', 500);
-    }
-  }
-
-  /**
-   * Verificar token
-   */
+  // Verificar estado del token
   static async verifyToken(req, res) {
     try {
-      const user = req.user;
-
-      if (!user) {
-        return responseError(res, 'Token inválido', 401);
+      const authHeader = req.headers.authorization;
+      const cookieToken = req.cookies?.authToken;
+      
+      let token = null;
+      
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      } else if (cookieToken) {
+        token = cookieToken;
       }
 
-      return responseSuccess(res, 'Token válido', {
-        user: {
-          id: user.id_usuario,
-          username: user.username,
-          perfil: user.perfil_usuario,
-          nombre_completo: user.nombre_completo,
-          sucursal: user.sucursal_nombre
+      if (!token) {
+        return responseError(res, 'No hay token presente', 401);
+      }
+
+      jwt.verify(token, jwtConfig.secret, (err, decoded) => {
+        if (err) {
+          if (err.name === 'TokenExpiredError') {
+            return responseError(res, 'Token expirado', 401);
+          } else if (err.name === 'JsonWebTokenError') {
+            return responseError(res, 'Token inválido', 401);
+          } else {
+            return responseError(res, 'Error de verificación', 401);
+          }
         }
+
+        return responseSuccess(res, 'Token válido', {
+          user: {
+            id: decoded.id_usuario,
+            username: decoded.username,
+            nombre: decoded.nombre_completo,
+            rol: decoded.perfil_usuario
+          },
+          expires_in: decoded.exp
+        });
       });
 
     } catch (error) {
@@ -223,40 +239,15 @@ class AuthController {
     }
   }
 
-  /**
-   * Verificar contraseña con SHA256 + salt - MÉTODO ESTÁTICO CORREGIDO
-   */
-  static async verifyPassword(password, salt, hash) {
-    try {
-      // Crear hash con la contraseña proporcionada y el salt
-      const hasher = crypto.createHash('sha256');
-      hasher.update(password + salt);
-      const computedHash = hasher.digest('hex');
-      
-      console.log('🔐 Verificando contraseña:');
-      console.log('   Password:', password);
-      console.log('   Salt:', salt);
-      console.log('   Hash esperado:', hash);
-      console.log('   Hash calculado:', computedHash);
-      console.log('   ¿Coinciden?', computedHash === hash);
-      
-      // Comparar con el hash almacenado
-      return computedHash === hash;
-    } catch (error) {
-      console.error('Error verificando contraseña:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Cambiar contraseña
-   */
+  // Cambiar contraseña
   static async changePassword(req, res) {
     try {
       const { currentPassword, newPassword } = req.body;
-      const userId = req.user.id_usuario;
+      
+      if (!req.user) {
+        return responseError(res, 'Usuario no autenticado', 401);
+      }
 
-      // Validar datos de entrada
       if (!currentPassword || !newPassword) {
         return responseError(res, 'Contraseña actual y nueva contraseña son requeridas', 400);
       }
@@ -265,80 +256,46 @@ class AuthController {
         return responseError(res, 'La nueva contraseña debe tener al menos 6 caracteres', 400);
       }
 
-      // Obtener datos actuales del usuario
-      const userQuery = 'SELECT password_hash, salt FROM usuarios WHERE id_usuario = ?';
-      const users = await executeQuery(userQuery, [userId]);
+      // Obtener información del usuario
+      const usuarios = await executeQuery(
+        'SELECT password_hash, salt FROM usuarios WHERE id_usuario = ?',
+        [req.user.id]
+      );
 
-      if (!users || users.length === 0) {
+      if (usuarios.length === 0) {
         return responseError(res, 'Usuario no encontrado', 404);
       }
 
-      const user = users[0];
+      const usuario = usuarios[0];
 
-      // Verificar contraseña actual - CORRECCIÓN: usar AuthController.verifyPassword
-      const isCurrentPasswordValid = await AuthController.verifyPassword(currentPassword, user.salt, user.password_hash);
-      
-      if (!isCurrentPasswordValid) {
+      // Verificar contraseña actual
+      const currentPasswordHash = crypto
+        .createHash('sha256')
+        .update(currentPassword + usuario.salt)
+        .digest('hex');
+
+      if (currentPasswordHash !== usuario.password_hash) {
         return responseError(res, 'Contraseña actual incorrecta', 400);
       }
 
-      // Generar nuevo salt y hash
-      const newSalt = crypto.randomBytes(16).toString('hex');
-      const hasher = crypto.createHash('sha256');
-      hasher.update(newPassword + newSalt);
-      const newHash = hasher.digest('hex');
+      // Generar nuevo hash
+      const newSalt = 'salt_' + Date.now();
+      const newPasswordHash = crypto
+        .createHash('sha256')
+        .update(newPassword + newSalt)
+        .digest('hex');
 
-      // Actualizar en base de datos
+      // Actualizar contraseña
       await executeQuery(
         'UPDATE usuarios SET password_hash = ?, salt = ? WHERE id_usuario = ?',
-        [newHash, newSalt, userId]
+        [newPasswordHash, newSalt, req.user.id]
       );
 
-      return responseSuccess(res, 'Contraseña actualizada exitosamente');
+      return responseSuccess(res, 'Contraseña cambiada exitosamente');
 
     } catch (error) {
       console.error('Error en changePassword:', error);
       return responseError(res, 'Error al cambiar contraseña', 500);
-    }
-  }
-
-  /**
-   * Obtener información básica del sistema para el dashboard
-   */
-  static async getDashboardInfo(req, res) {
-    try {
-      const user = req.user;
-
-      if (!user) {
-        return responseError(res, 'Usuario no autenticado', 401);
-      }
-
-      // Obtener contadores básicos
-      const dashboardQuery = `
-        SELECT 
-          (SELECT COUNT(*) FROM sucursales WHERE estado = 'Activo') as total_sucursales,
-          (SELECT COUNT(*) FROM categorias_productos WHERE estado = 'Activo') as total_categorias,
-          (SELECT COUNT(*) FROM productos WHERE estado = 'Activo') as total_productos,
-          (SELECT COUNT(*) FROM clientes WHERE estado = 'Activo') as total_clientes,
-          (SELECT COUNT(*) FROM empleados WHERE estado = 'Activo') as total_empleados
-      `;
-
-      const dashboard = await executeQuery(dashboardQuery);
-
-      return responseSuccess(res, 'Información del dashboard obtenida exitosamente', {
-        user: {
-          id: user.id_usuario,
-          username: user.username,
-          perfil: user.perfil_usuario,
-          nombre_completo: user.nombre_completo,
-          sucursal: user.sucursal_nombre
-        },
-        statistics: dashboard[0]
-      });
-
-    } catch (error) {
-      console.error('Error en getDashboardInfo:', error);
-      return responseError(res, 'Error al obtener información del dashboard', 500);
     }
   }
 }

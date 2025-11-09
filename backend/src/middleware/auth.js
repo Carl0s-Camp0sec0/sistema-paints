@@ -1,4 +1,4 @@
-// backend/src/middleware/auth.js - VERSIÓN COMPLETA CORREGIDA
+// backend/src/middleware/auth.js - CORREGIDO PARA TU SISTEMA
 const jwt = require('jsonwebtoken');
 const { jwtConfig } = require('../config/jwt');
 const { responseError } = require('../utils/responses');
@@ -25,6 +25,7 @@ const authenticateToken = (req, res, next) => {
     // Verificar y decodificar el token
     jwt.verify(token, jwtConfig.secret, (err, decoded) => {
       if (err) {
+        console.log('Error JWT:', err.name);
         if (err.name === 'TokenExpiredError') {
           return responseError(res, 'Token expirado', 401);
         } else if (err.name === 'JsonWebTokenError') {
@@ -36,13 +37,15 @@ const authenticateToken = (req, res, next) => {
 
       // Agregar información del usuario al objeto request
       req.user = {
-        id: decoded.id,
-        nombre: decoded.nombre,
+        id: decoded.id || decoded.id_usuario,
+        nombre: decoded.nombre || decoded.nombre_completo,
         email: decoded.email,
-        rol: decoded.rol,
-        id_sucursal: decoded.id_sucursal
+        rol: decoded.rol || decoded.perfil_usuario,
+        id_sucursal: decoded.id_sucursal,
+        username: decoded.username
       };
 
+      console.log('Usuario autenticado:', req.user.username, 'Rol:', req.user.rol);
       next();
     });
 
@@ -102,7 +105,7 @@ const authorizeSucursal = (req, res, next) => {
   }
 };
 
-// Middleware opcional de autenticación (para rutas públicas con datos adicionales si está autenticado)
+// Middleware opcional de autenticación (para rutas públicas)
 const optionalAuth = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -117,31 +120,27 @@ const optionalAuth = (req, res, next) => {
     }
 
     if (!token) {
-      // No hay token, continuar sin autenticación
       return next();
     }
 
-    // Intentar verificar el token
     jwt.verify(token, jwtConfig.secret, (err, decoded) => {
       if (err) {
-        // Token inválido o expirado, continuar sin autenticación
         return next();
       }
 
-      // Token válido, agregar información del usuario
       req.user = {
-        id: decoded.id,
-        nombre: decoded.nombre,
+        id: decoded.id || decoded.id_usuario,
+        nombre: decoded.nombre || decoded.nombre_completo,
         email: decoded.email,
-        rol: decoded.rol,
-        id_sucursal: decoded.id_sucursal
+        rol: decoded.rol || decoded.perfil_usuario,
+        id_sucursal: decoded.id_sucursal,
+        username: decoded.username
       };
 
       next();
     });
 
   } catch (error) {
-    // En caso de error, continuar sin autenticación
     next();
   }
 };
@@ -153,7 +152,7 @@ const hasPermission = (req, permission) => {
   const rolePermissions = {
     'Gerente': ['all'],
     'Digitador': ['read', 'create', 'update'],
-    'Vendedor': ['read']
+    'Cajero': ['read']
   };
 
   const userPermissions = rolePermissions[req.user.rol] || [];
