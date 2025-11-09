@@ -1,7 +1,7 @@
-// backend/src/routes/productoRoutes.js
+// backend/src/routes/productoRoutes.js - VERSIÓN CORREGIDA
 const express = require('express');
 const ProductoController = require('../controllers/productoController');
-const { authenticateToken, authorizeRoles } = require('../middleware/auth'); // CAMBIADO: nombres actualizados
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
 const router = express.Router();
 

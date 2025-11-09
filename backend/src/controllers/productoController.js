@@ -1,35 +1,82 @@
-// backend/src/controllers/productoController.js - VERSIÓN CORREGIDA COMPLETA
+// backend/src/controllers/productoController.js - VERSIÓN COMPLETA CORREGIDA
 const ProductoRepository = require('../repositories/productoRepository');
 const { responseSuccess, responseError } = require('../utils/responses');
 
 class ProductoController {
-
+  
   // Obtener todos los productos con filtros
   static async getAll(req, res) {
     try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const search = req.query.search || '';
-      const categoria = req.query.categoria || '';
+      const { 
+        page = 1, 
+        limit = 10, 
+        search = '', 
+        categoria, 
+        estado = 'activo',
+        orderBy = 'nombre',
+        orderDir = 'ASC'
+      } = req.query;
 
-      const result = await ProductoRepository.findAll(page, limit, search, categoria);
+      const filters = {
+        search: search.trim(),
+        categoria: categoria ? parseInt(categoria) : null,
+        estado,
+        orderBy,
+        orderDir: orderDir.toUpperCase()
+      };
+
+      const pagination = {
+        page: parseInt(page),
+        limit: Math.min(parseInt(limit), 100)
+      };
+
+      const result = await ProductoRepository.findAll(filters, pagination);
 
       return responseSuccess(res, 'Productos obtenidos exitosamente', {
         productos: result.productos,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(result.total / limit),
-          totalItems: result.total,
-          itemsPerPage: limit
-        }
+        pagination: result.pagination
       });
+
     } catch (error) {
       console.error('Error en getAll productos:', error);
       return responseError(res, 'Error al obtener productos', 500);
     }
   }
 
-  // Obtener producto por ID
+  // Obtener productos para select (formato simplificado)
+  static async getForSelect(req, res) {
+    try {
+      const { categoria } = req.query;
+      
+      const filters = {
+        estado: 'activo',
+        categoria: categoria ? parseInt(categoria) : null
+      };
+
+      const productos = await ProductoRepository.findForSelect(filters);
+
+      return responseSuccess(res, 'Productos para select obtenidos exitosamente', productos);
+
+    } catch (error) {
+      console.error('Error en getForSelect productos:', error);
+      return responseError(res, 'Error al obtener productos para select', 500);
+    }
+  }
+
+  // Obtener productos con stock bajo
+  static async getLowStock(req, res) {
+    try {
+      const productos = await ProductoRepository.findLowStock();
+
+      return responseSuccess(res, 'Productos con stock bajo obtenidos exitosamente', productos);
+
+    } catch (error) {
+      console.error('Error en getLowStock productos:', error);
+      return responseError(res, 'Error al obtener productos con stock bajo', 500);
+    }
+  }
+
+  // Obtener un producto por ID
   static async getById(req, res) {
     try {
       const { id } = req.params;
@@ -45,9 +92,58 @@ class ProductoController {
       }
 
       return responseSuccess(res, 'Producto obtenido exitosamente', producto);
+
     } catch (error) {
       console.error('Error en getById producto:', error);
       return responseError(res, 'Error al obtener producto', 500);
+    }
+  }
+
+  // Obtener historial de precios de un producto
+  static async getPriceHistory(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id || isNaN(parseInt(id))) {
+        return responseError(res, 'ID de producto inválido', 400);
+      }
+
+      // Verificar que el producto existe
+      const producto = await ProductoRepository.findById(id);
+      if (!producto) {
+        return responseError(res, 'Producto no encontrado', 404);
+      }
+
+      const historial = await ProductoRepository.getPriceHistory(id);
+
+      return responseSuccess(res, 'Historial de precios obtenido exitosamente', historial);
+
+    } catch (error) {
+      console.error('Error en getPriceHistory producto:', error);
+      return responseError(res, 'Error al obtener historial de precios', 500);
+    }
+  }
+
+  // Obtener stock actual de un producto
+  static async getStock(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id || isNaN(parseInt(id))) {
+        return responseError(res, 'ID de producto inválido', 400);
+      }
+
+      const stock = await ProductoRepository.getStock(id);
+
+      if (stock === null) {
+        return responseError(res, 'Producto no encontrado', 404);
+      }
+
+      return responseSuccess(res, 'Stock obtenido exitosamente', { stock });
+
+    } catch (error) {
+      console.error('Error en getStock producto:', error);
+      return responseError(res, 'Error al obtener stock', 500);
     }
   }
 
@@ -60,11 +156,11 @@ class ProductoController {
         descripcion,
         id_categoria,
         precio_venta,
-        descuento_porcentaje,
+        descuento_porcentaje = 0,
         id_unidad_medida,
         id_color,
-        stock_minimo,
-        stock_actual,
+        stock_minimo = 5,
+        stock_actual = 0,
         duracion_anos,
         cobertura_m2
       } = req.body;
@@ -100,10 +196,10 @@ class ProductoController {
       };
 
       const productoId = await ProductoRepository.create(productoData);
-
       const nuevoProducto = await ProductoRepository.findById(productoId);
 
       return responseSuccess(res, 'Producto creado exitosamente', nuevoProducto, 201);
+
     } catch (error) {
       console.error('Error en create producto:', error);
       
@@ -166,6 +262,7 @@ class ProductoController {
       const updatedProducto = await ProductoRepository.findById(id);
 
       return responseSuccess(res, 'Producto actualizado exitosamente', updatedProducto);
+
     } catch (error) {
       console.error('Error en update producto:', error);
       
@@ -181,6 +278,49 @@ class ProductoController {
     }
   }
 
+  // Actualizar precio de producto
+  static async updatePrice(req, res) {
+    try {
+      const { id } = req.params;
+      const { precio_venta, motivo = 'Actualización de precio' } = req.body;
+
+      if (!id || isNaN(parseInt(id))) {
+        return responseError(res, 'ID de producto inválido', 400);
+      }
+
+      if (!precio_venta || isNaN(parseFloat(precio_venta)) || parseFloat(precio_venta) < 0) {
+        return responseError(res, 'Precio de venta válido es requerido', 400);
+      }
+
+      // Verificar si el producto existe
+      const existingProducto = await ProductoRepository.findById(id);
+      if (!existingProducto) {
+        return responseError(res, 'Producto no encontrado', 404);
+      }
+
+      const precioAnterior = existingProducto.precio_venta;
+      const precioNuevo = parseFloat(precio_venta);
+
+      // Actualizar precio
+      await ProductoRepository.updatePrice(id, precioNuevo, precioAnterior, motivo);
+
+      const updatedProducto = await ProductoRepository.findById(id);
+
+      return responseSuccess(res, 'Precio actualizado exitosamente', {
+        producto: updatedProducto,
+        cambio: {
+          precio_anterior: precioAnterior,
+          precio_nuevo: precioNuevo,
+          motivo
+        }
+      });
+
+    } catch (error) {
+      console.error('Error en updatePrice producto:', error);
+      return responseError(res, 'Error al actualizar precio', 500);
+    }
+  }
+
   // Eliminar producto (soft delete)
   static async delete(req, res) {
     try {
@@ -190,9 +330,16 @@ class ProductoController {
         return responseError(res, 'ID de producto inválido', 400);
       }
 
-      const producto = await ProductoRepository.findById(id);
-      if (!producto) {
+      // Verificar si el producto existe
+      const existingProducto = await ProductoRepository.findById(id);
+      if (!existingProducto) {
         return responseError(res, 'Producto no encontrado', 404);
+      }
+
+      // Verificar si el producto está en uso (facturas)
+      const inUse = await ProductoRepository.isInUse(id);
+      if (inUse) {
+        return responseError(res, 'No se puede eliminar: el producto está siendo utilizado en facturas', 400);
       }
 
       const deleted = await ProductoRepository.delete(id);
@@ -202,79 +349,15 @@ class ProductoController {
       }
 
       return responseSuccess(res, 'Producto eliminado exitosamente');
+
     } catch (error) {
       console.error('Error en delete producto:', error);
-      return responseError(res, 'Error al eliminar producto', 500);
-    }
-  }
-
-  // Obtener productos para dropdown/select
-  static async getForSelect(req, res) {
-    try {
-      const productos = await ProductoRepository.getForSelect();
-      return responseSuccess(res, 'Productos obtenidos exitosamente', productos);
-    } catch (error) {
-      console.error('Error en getForSelect productos:', error);
-      return responseError(res, 'Error al obtener productos', 500);
-    }
-  }
-
-  // Obtener datos para formularios (categorías, unidades, colores)
-  static async getFormData(req, res) {
-    try {
-      const [categorias, unidadesMedida, colores] = await Promise.all([
-        ProductoRepository.getCategorias(),
-        ProductoRepository.getUnidadesMedida(),
-        ProductoRepository.getColores()
-      ]);
-
-      return responseSuccess(res, 'Datos para formularios obtenidos exitosamente', {
-        categorias,
-        unidadesMedida,
-        colores
-      });
-    } catch (error) {
-      console.error('Error en getFormData:', error);
-      return responseError(res, 'Error al obtener datos para formularios', 500);
-    }
-  }
-
-  // Obtener productos con stock bajo
-  static async getLowStock(req, res) {
-    try {
-      const productos = await ProductoRepository.getProductsWithLowStock();
-      return responseSuccess(res, 'Productos con stock bajo obtenidos exitosamente', productos);
-    } catch (error) {
-      console.error('Error en getLowStock:', error);
-      return responseError(res, 'Error al obtener productos con stock bajo', 500);
-    }
-  }
-
-  // Buscar productos
-  static async search(req, res) {
-    try {
-      const { termino } = req.params;
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-
-      if (!termino || termino.trim().length < 2) {
-        return responseError(res, 'El término de búsqueda debe tener al menos 2 caracteres', 400);
+      
+      if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+        return responseError(res, 'No se puede eliminar: el producto está siendo utilizado', 400);
       }
-
-      const result = await ProductoRepository.findAll(page, limit, termino.trim());
-
-      return responseSuccess(res, 'Búsqueda completada exitosamente', {
-        productos: result.productos,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(result.total / limit),
-          totalItems: result.total,
-          itemsPerPage: limit
-        }
-      });
-    } catch (error) {
-      console.error('Error en search productos:', error);
-      return responseError(res, 'Error al buscar productos', 500);
+      
+      return responseError(res, 'Error al eliminar producto', 500);
     }
   }
 }

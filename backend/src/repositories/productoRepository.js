@@ -1,375 +1,433 @@
-// backend/src/repositories/productoRepository.js - CORREGIDO PARA ESTRUCTURA REAL
-const { executeQuery } = require('../config/database');
+// backend/src/repositories/productoRepository.js - VERSIÓN COMPLETA CORREGIDA
+const db = require('../config/database');
 
 class ProductoRepository {
   
-  // Obtener todos los productos con información completa - CONSULTA CORREGIDA
-  static async findAll(page = 1, limit = 10, search = '', categoria = '') {
+  // Obtener todos los productos con filtros y paginación
+  static async findAll(filters = {}, pagination = { page: 1, limit: 10 }) {
     try {
+      const { search, categoria, estado, orderBy = 'nombre', orderDir = 'ASC' } = filters;
+      const { page, limit } = pagination;
       const offset = (page - 1) * limit;
-      
-      let whereClause = 'WHERE p.estado = ?';
-      let searchParams = ['Activo'];
-      
-      if (search) {
-        whereClause += ' AND (p.codigo LIKE ? OR p.nombre LIKE ? OR p.descripcion LIKE ?)';
-        const searchTerm = `%${search}%`;
-        searchParams.push(searchTerm, searchTerm, searchTerm);
-      }
-      
-      if (categoria && categoria !== 'all') {
-        whereClause += ' AND p.id_categoria = ?';
-        searchParams.push(categoria);
-      }
-      
-      const sqlCount = `
+
+      let baseQuery = `
+        SELECT 
+          p.id_producto,
+          p.codigo,
+          p.nombre,
+          p.descripcion,
+          p.precio_venta,
+          p.descuento_porcentaje,
+          p.stock_actual,
+          p.stock_minimo,
+          p.duracion_anos,
+          p.cobertura_m2,
+          p.estado,
+          p.fecha_creacion,
+          p.fecha_actualizacion,
+          c.nombre as categoria_nombre,
+          um.nombre as unidad_medida_nombre,
+          col.nombre as color_nombre
+        FROM productos p
+        LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+        LEFT JOIN unidades_medida um ON p.id_unidad_medida = um.id_unidad_medida
+        LEFT JOIN colores col ON p.id_color = col.id_color
+        WHERE 1=1
+      `;
+
+      let countQuery = `
         SELECT COUNT(*) as total
         FROM productos p
-        ${whereClause}
+        WHERE 1=1
       `;
+
+      const queryParams = [];
+      let whereConditions = '';
+
+      // Filtro por estado
+      if (estado) {
+        whereConditions += ` AND p.estado = ?`;
+        queryParams.push(estado);
+      }
+
+      // Filtro por categoría
+      if (categoria) {
+        whereConditions += ` AND p.id_categoria = ?`;
+        queryParams.push(categoria);
+      }
+
+      // Filtro de búsqueda
+      if (search) {
+        whereConditions += ` AND (p.codigo LIKE ? OR p.nombre LIKE ? OR p.descripcion LIKE ?)`;
+        const searchTerm = `%${search}%`;
+        queryParams.push(searchTerm, searchTerm, searchTerm);
+      }
+
+      // Agregar condiciones WHERE
+      baseQuery += whereConditions;
+      countQuery += whereConditions;
+
+      // Ordenamiento
+      const allowedOrderBy = ['codigo', 'nombre', 'precio_venta', 'stock_actual', 'fecha_creacion'];
+      const safeOrderBy = allowedOrderBy.includes(orderBy) ? orderBy : 'nombre';
+      const safeOrderDir = ['ASC', 'DESC'].includes(orderDir) ? orderDir : 'ASC';
       
-      // CONSULTA CORREGIDA CON NOMBRES REALES DE CAMPOS
-      const sql = `
-        SELECT 
-          p.id_producto,
-          p.codigo,
-          p.nombre,
-          p.descripcion,
-          p.precio_venta,
-          p.descuento_porcentaje,
-          p.stock_minimo,
-          p.stock_actual,
-          p.duracion_anos,
-          p.cobertura_m2,
-          p.created_at,
-          p.estado,
-          c.nombre as categoria,
-          u.nombre as unidad_medida,
-          u.abreviatura as unidad_abrev,
-          col.nombre as color,
-          col.codigo_hex,
-          (p.precio_venta * (1 - p.descuento_porcentaje/100)) as precio_final
-        FROM productos p
-        LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-        LEFT JOIN unidades_medida u ON p.id_unidad_medida = u.id_unidad
-        LEFT JOIN colores col ON p.id_color = col.id_color
-        ${whereClause}
-        ORDER BY p.nombre ASC
-        LIMIT ? OFFSET ?
-      `;
-      
-      const params = [...searchParams, limit, offset];
-      
-      const [countResult, productos] = await Promise.all([
-        executeQuery(sqlCount, searchParams),
-        executeQuery(sql, params)
-      ]);
-      
+      baseQuery += ` ORDER BY p.${safeOrderBy} ${safeOrderDir}`;
+
+      // Paginación
+      baseQuery += ` LIMIT ? OFFSET ?`;
+      queryParams.push(limit, offset);
+
+      // Ejecutar consultas
+      const [productos] = await db.execute(baseQuery, queryParams);
+      const [totalResult] = await db.execute(countQuery, queryParams.slice(0, -2)); // Remover limit y offset para el conteo
+
+      const total = totalResult[0].total;
+      const totalPages = Math.ceil(total / limit);
+
       return {
         productos,
-        total: countResult[0].total
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
       };
+
     } catch (error) {
-      console.error('Error en findAll productos:', error);
+      console.error('Error en ProductoRepository.findAll:', error);
       throw error;
     }
   }
 
-  // Buscar producto por ID - CORREGIDO
-  static async findById(id) {
+  // Obtener productos para select (formato simplificado)
+  static async findForSelect(filters = {}) {
     try {
-      const sql = `
+      const { categoria, estado = 'activo' } = filters;
+
+      let query = `
         SELECT 
           p.id_producto,
           p.codigo,
           p.nombre,
-          p.descripcion,
           p.precio_venta,
-          p.descuento_porcentaje,
-          p.stock_minimo,
-          p.stock_actual,
-          p.duracion_anos,
-          p.cobertura_m2,
-          p.created_at,
-          p.updated_at,
-          p.estado,
-          c.nombre as categoria,
-          c.id_categoria,
-          u.nombre as unidad_medida,
-          u.id_unidad,
-          col.nombre as color,
-          col.id_color
+          p.stock_actual
         FROM productos p
-        LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-        LEFT JOIN unidades_medida u ON p.id_unidad_medida = u.id_unidad
-        LEFT JOIN colores col ON p.id_color = col.id_color
-        WHERE p.id_producto = ? AND p.estado = ?
+        WHERE p.estado = ?
       `;
-      
-      const result = await executeQuery(sql, [id, 'Activo']);
-      return result.length > 0 ? result[0] : null;
+
+      const queryParams = [estado];
+
+      if (categoria) {
+        query += ` AND p.id_categoria = ?`;
+        queryParams.push(categoria);
+      }
+
+      query += ` ORDER BY p.nombre ASC`;
+
+      const [productos] = await db.execute(query, queryParams);
+      return productos;
+
     } catch (error) {
-      console.error('Error en findById producto:', error);
+      console.error('Error en ProductoRepository.findForSelect:', error);
       throw error;
     }
   }
 
-  // Crear nuevo producto - CORREGIDO
+  // Obtener productos con stock bajo
+  static async findLowStock() {
+    try {
+      const query = `
+        SELECT 
+          p.id_producto,
+          p.codigo,
+          p.nombre,
+          p.stock_actual,
+          p.stock_minimo,
+          c.nombre as categoria_nombre
+        FROM productos p
+        LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+        WHERE p.estado = 'activo' 
+        AND p.stock_actual <= p.stock_minimo
+        ORDER BY (p.stock_actual - p.stock_minimo) ASC, p.nombre ASC
+      `;
+
+      const [productos] = await db.execute(query);
+      return productos;
+
+    } catch (error) {
+      console.error('Error en ProductoRepository.findLowStock:', error);
+      throw error;
+    }
+  }
+
+  // Buscar producto por ID
+  static async findById(id) {
+    try {
+      const query = `
+        SELECT 
+          p.*,
+          c.nombre as categoria_nombre,
+          um.nombre as unidad_medida_nombre,
+          col.nombre as color_nombre
+        FROM productos p
+        LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+        LEFT JOIN unidades_medida um ON p.id_unidad_medida = um.id_unidad_medida
+        LEFT JOIN colores col ON p.id_color = col.id_color
+        WHERE p.id_producto = ?
+      `;
+
+      const [productos] = await db.execute(query, [id]);
+      return productos[0] || null;
+
+    } catch (error) {
+      console.error('Error en ProductoRepository.findById:', error);
+      throw error;
+    }
+  }
+
+  // Verificar si existe producto por código
+  static async existsByCode(codigo, excludeId = null) {
+    try {
+      let query = `SELECT COUNT(*) as count FROM productos WHERE codigo = ?`;
+      const params = [codigo];
+
+      if (excludeId) {
+        query += ` AND id_producto != ?`;
+        params.push(excludeId);
+      }
+
+      const [result] = await db.execute(query, params);
+      return result[0].count > 0;
+
+    } catch (error) {
+      console.error('Error en ProductoRepository.existsByCode:', error);
+      throw error;
+    }
+  }
+
+  // Crear nuevo producto
   static async create(productoData) {
     try {
-      const sql = `
+      const query = `
         INSERT INTO productos (
-          codigo, nombre, descripcion, id_categoria, precio_venta, 
-          descuento_porcentaje, id_unidad_medida, id_color,
-          stock_minimo, stock_actual, duracion_anos, cobertura_m2, estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          codigo, nombre, descripcion, id_categoria, precio_venta,
+          descuento_porcentaje, id_unidad_medida, id_color, stock_minimo,
+          stock_actual, duracion_anos, cobertura_m2, estado,
+          fecha_creacion, fecha_actualizacion
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo', NOW(), NOW())
       `;
-      
-      const result = await executeQuery(sql, [
+
+      const params = [
         productoData.codigo,
         productoData.nombre,
-        productoData.descripcion || null,
+        productoData.descripcion,
         productoData.id_categoria,
-        productoData.precio_venta || 0,
-        productoData.descuento_porcentaje || 0,
+        productoData.precio_venta,
+        productoData.descuento_porcentaje,
         productoData.id_unidad_medida,
-        productoData.id_color || null,
-        productoData.stock_minimo || 5,
-        productoData.stock_actual || 0,
-        productoData.duracion_anos || null,
-        productoData.cobertura_m2 || null,
-        'Activo'
-      ]);
-      
+        productoData.id_color,
+        productoData.stock_minimo,
+        productoData.stock_actual,
+        productoData.duracion_anos,
+        productoData.cobertura_m2
+      ];
+
+      const [result] = await db.execute(query, params);
       return result.insertId;
+
     } catch (error) {
-      console.error('Error en create producto:', error);
+      console.error('Error en ProductoRepository.create:', error);
       throw error;
     }
   }
 
-  // Actualizar producto - CORREGIDO
-  static async update(id, productoData) {
+  // Actualizar producto
+  static async update(id, updateData) {
     try {
       const fields = [];
       const values = [];
-      
-      if (productoData.codigo !== undefined) {
-        fields.push('codigo = ?');
-        values.push(productoData.codigo);
-      }
-      
-      if (productoData.nombre !== undefined) {
-        fields.push('nombre = ?');
-        values.push(productoData.nombre);
-      }
-      
-      if (productoData.descripcion !== undefined) {
-        fields.push('descripcion = ?');
-        values.push(productoData.descripcion);
-      }
-      
-      if (productoData.precio_venta !== undefined) {
-        fields.push('precio_venta = ?');
-        values.push(productoData.precio_venta);
-      }
-      
-      if (productoData.descuento_porcentaje !== undefined) {
-        fields.push('descuento_porcentaje = ?');
-        values.push(productoData.descuento_porcentaje);
-      }
-      
-      if (productoData.stock_minimo !== undefined) {
-        fields.push('stock_minimo = ?');
-        values.push(productoData.stock_minimo);
-      }
-      
-      if (productoData.stock_actual !== undefined) {
-        fields.push('stock_actual = ?');
-        values.push(productoData.stock_actual);
-      }
-      
-      if (productoData.id_categoria !== undefined) {
-        fields.push('id_categoria = ?');
-        values.push(productoData.id_categoria);
-      }
-      
-      if (productoData.id_unidad_medida !== undefined) {
-        fields.push('id_unidad_medida = ?');
-        values.push(productoData.id_unidad_medida);
-      }
-      
-      if (productoData.id_color !== undefined) {
-        fields.push('id_color = ?');
-        values.push(productoData.id_color);
-      }
-      
-      if (productoData.duracion_anos !== undefined) {
-        fields.push('duracion_anos = ?');
-        values.push(productoData.duracion_anos);
-      }
-      
-      if (productoData.cobertura_m2 !== undefined) {
-        fields.push('cobertura_m2 = ?');
-        values.push(productoData.cobertura_m2);
-      }
-      
+
+      // Construir dinámicamente la consulta
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] !== undefined) {
+          fields.push(`${key} = ?`);
+          values.push(updateData[key]);
+        }
+      });
+
       if (fields.length === 0) {
-        throw new Error('No hay campos para actualizar');
+        return false;
       }
-      
+
+      // Agregar fecha de actualización
+      fields.push('fecha_actualizacion = NOW()');
       values.push(id);
-      
-      const sql = `
-        UPDATE productos 
-        SET ${fields.join(', ')}
-        WHERE id_producto = ? AND estado = ?
-      `;
-      
-      values.push('Activo');
-      
-      const result = await executeQuery(sql, values);
+
+      const query = `UPDATE productos SET ${fields.join(', ')} WHERE id_producto = ?`;
+
+      const [result] = await db.execute(query, values);
       return result.affectedRows > 0;
+
     } catch (error) {
-      console.error('Error en update producto:', error);
+      console.error('Error en ProductoRepository.update:', error);
       throw error;
     }
   }
 
-  // Desactivar producto (soft delete) - CORREGIDO
+  // Actualizar precio de producto
+  static async updatePrice(id, precioNuevo, precioAnterior, motivo) {
+    const connection = await db.getConnection();
+    
+    try {
+      await connection.beginTransaction();
+
+      // Actualizar precio en la tabla productos
+      await connection.execute(
+        `UPDATE productos SET precio_venta = ?, fecha_actualizacion = NOW() WHERE id_producto = ?`,
+        [precioNuevo, id]
+      );
+
+      // Registrar en historial de precios
+      await connection.execute(
+        `INSERT INTO historial_precios (
+          id_producto, precio_anterior, precio_nuevo, motivo, 
+          fecha_cambio, id_usuario
+        ) VALUES (?, ?, ?, ?, NOW(), 1)`, // TODO: obtener id_usuario del contexto
+        [id, precioAnterior, precioNuevo, motivo]
+      );
+
+      await connection.commit();
+      return true;
+
+    } catch (error) {
+      await connection.rollback();
+      console.error('Error en ProductoRepository.updatePrice:', error);
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  // Obtener historial de precios
+  static async getPriceHistory(id) {
+    try {
+      const query = `
+        SELECT 
+          hp.*,
+          u.nombre as usuario_nombre
+        FROM historial_precios hp
+        LEFT JOIN usuarios u ON hp.id_usuario = u.id_usuario
+        WHERE hp.id_producto = ?
+        ORDER BY hp.fecha_cambio DESC
+      `;
+
+      const [historial] = await db.execute(query, [id]);
+      return historial;
+
+    } catch (error) {
+      console.error('Error en ProductoRepository.getPriceHistory:', error);
+      throw error;
+    }
+  }
+
+  // Obtener stock actual
+  static async getStock(id) {
+    try {
+      const query = `SELECT stock_actual FROM productos WHERE id_producto = ?`;
+      const [result] = await db.execute(query, [id]);
+      
+      if (result.length === 0) {
+        return null;
+      }
+      
+      return result[0].stock_actual;
+
+    } catch (error) {
+      console.error('Error en ProductoRepository.getStock:', error);
+      throw error;
+    }
+  }
+
+  // Verificar si el producto está en uso
+  static async isInUse(id) {
+    try {
+      const query = `
+        SELECT COUNT(*) as count 
+        FROM detalle_facturas df
+        INNER JOIN facturas f ON df.id_factura = f.id_factura
+        WHERE df.id_producto = ? AND f.estado != 'anulada'
+      `;
+
+      const [result] = await db.execute(query, [id]);
+      return result[0].count > 0;
+
+    } catch (error) {
+      console.error('Error en ProductoRepository.isInUse:', error);
+      throw error;
+    }
+  }
+
+  // Eliminar producto (soft delete)
   static async delete(id) {
     try {
-      const sql = `
-        UPDATE productos 
-        SET estado = ?
-        WHERE id_producto = ?
-      `;
+      const query = `UPDATE productos SET estado = 'eliminado', fecha_actualizacion = NOW() WHERE id_producto = ?`;
+      const [result] = await db.execute(query, [id]);
       
-      const result = await executeQuery(sql, ['Inactivo', id]);
       return result.affectedRows > 0;
+
     } catch (error) {
-      console.error('Error en delete producto:', error);
+      console.error('Error en ProductoRepository.delete:', error);
       throw error;
     }
   }
 
-  // Verificar si existe producto por código - CORREGIDO
-  static async existsByCode(codigo, excludeId = null) {
+  // Actualizar stock de producto
+  static async updateStock(id, nuevoStock, motivo = 'Actualización manual') {
     try {
-      let sql = `
-        SELECT COUNT(*) as count
-        FROM productos
-        WHERE codigo = ? AND estado = ?
-      `;
-      let params = [codigo, 'Activo'];
+      const connection = await db.getConnection();
       
-      if (excludeId) {
-        sql += ' AND id_producto != ?';
-        params.push(excludeId);
+      await connection.beginTransaction();
+
+      // Obtener stock actual
+      const [currentStock] = await connection.execute(
+        `SELECT stock_actual FROM productos WHERE id_producto = ?`,
+        [id]
+      );
+
+      if (currentStock.length === 0) {
+        throw new Error('Producto no encontrado');
       }
-      
-      const result = await executeQuery(sql, params);
-      return result[0].count > 0;
-    } catch (error) {
-      console.error('Error en existsByCode producto:', error);
-      throw error;
-    }
-  }
 
-  // Obtener productos para select/dropdown - CORREGIDO
-  static async getForSelect() {
-    try {
-      const sql = `
-        SELECT 
-          p.id_producto,
-          p.codigo,
-          p.nombre,
-          p.precio_venta,
-          (p.precio_venta * (1 - p.descuento_porcentaje/100)) as precio_final
-        FROM productos p
-        WHERE p.estado = ?
-        ORDER BY p.nombre ASC
-      `;
-      
-      return await executeQuery(sql, ['Activo']);
-    } catch (error) {
-      console.error('Error en getForSelect productos:', error);
-      throw error;
-    }
-  }
+      const stockAnterior = currentStock[0].stock_actual;
 
-  // Obtener productos con stock bajo - CORREGIDO
-  static async getProductsWithLowStock() {
-    try {
-      const sql = `
-        SELECT 
-          p.id_producto,
-          p.codigo,
-          p.nombre,
-          p.stock_minimo,
-          p.stock_actual,
-          c.nombre as categoria
-        FROM productos p
-        LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-        WHERE p.estado = ? AND p.stock_actual <= p.stock_minimo
-        ORDER BY p.stock_actual ASC, p.nombre
-      `;
-      
-      return await executeQuery(sql, ['Activo']);
-    } catch (error) {
-      console.error('Error en getProductsWithLowStock:', error);
-      throw error;
-    }
-  }
+      // Actualizar stock
+      await connection.execute(
+        `UPDATE productos SET stock_actual = ?, fecha_actualizacion = NOW() WHERE id_producto = ?`,
+        [nuevoStock, id]
+      );
 
-  // Obtener categorías para los dropdowns
-  static async getCategorias() {
-    try {
-      const sql = `
-        SELECT id_categoria, nombre
-        FROM categorias_productos
-        WHERE estado = ?
-        ORDER BY nombre ASC
-      `;
-      
-      return await executeQuery(sql, ['Activo']);
-    } catch (error) {
-      console.error('Error en getCategorias:', error);
-      throw error;
-    }
-  }
+      // Registrar en historial de stock
+      await connection.execute(
+        `INSERT INTO movimientos_stock (
+          id_producto, tipo_movimiento, cantidad_anterior, cantidad_nueva,
+          motivo, fecha_movimiento, id_usuario
+        ) VALUES (?, 'manual', ?, ?, ?, NOW(), 1)`, // TODO: obtener id_usuario del contexto
+        [id, stockAnterior, nuevoStock, motivo]
+      );
 
-  // Obtener unidades de medida para los dropdowns
-  static async getUnidadesMedida() {
-    try {
-      const sql = `
-        SELECT id_unidad, nombre, abreviatura
-        FROM unidades_medida
-        WHERE estado = ?
-        ORDER BY nombre ASC
-      `;
-      
-      return await executeQuery(sql, ['Activo']);
-    } catch (error) {
-      console.error('Error en getUnidadesMedida:', error);
-      throw error;
-    }
-  }
+      await connection.commit();
+      return true;
 
-  // Obtener colores para los dropdowns
-  static async getColores() {
-    try {
-      const sql = `
-        SELECT id_color, nombre, codigo_hex
-        FROM colores
-        WHERE estado = ?
-        ORDER BY nombre ASC
-      `;
-      
-      return await executeQuery(sql, ['Activo']);
     } catch (error) {
-      console.error('Error en getColores:', error);
+      await connection.rollback();
+      console.error('Error en ProductoRepository.updateStock:', error);
       throw error;
+    } finally {
+      connection.release();
     }
   }
 }
