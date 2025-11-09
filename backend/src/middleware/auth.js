@@ -1,10 +1,10 @@
-// backend/src/middleware/auth.js
+// backend/src/middleware/auth.js - VERSIÓN CORREGIDA COMPLETA
 const jwt = require('jsonwebtoken');
 const { executeQuery } = require('../config/database');
 const { responseError } = require('../utils/responses');
 
 /**
- * Middleware para autenticar token JWT
+ * Middleware para autenticar token JWT - CORREGIDO
  */
 async function authenticateToken(req, res, next) {
   try {
@@ -13,33 +13,49 @@ async function authenticateToken(req, res, next) {
     const token = authHeader && authHeader.split(' ')[1] || req.cookies?.authToken;
 
     if (!token) {
+      console.log('No token provided');
       return responseError(res, 'Token de acceso requerido', 401);
     }
 
     // Verificar token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'paints_system_secret_key_2024_very_secure');
     
-    // Verificar si el usuario aún existe y está activo - ESTRUCTURA ACTUALIZADA
+    console.log('Token decoded:', decoded); // Para debugging
+
+    // CORRECCIÓN: Verificar que el decoded tenga la información necesaria
+    const userId = decoded.userId || decoded.id || decoded.user_id;
+    
+    if (!userId) {
+      console.error('Token no contiene ID de usuario válido:', decoded);
+      return responseError(res, 'Token inválido: falta información del usuario', 401);
+    }
+
+    // Verificar si el usuario aún existe y está activo - CONSULTA CORREGIDA
     const userQuery = `
       SELECT 
         u.id_usuario,
         u.username,
-        u.perfil_usuario,  -- CAMBIADO: ahora es ENUM directo
+        u.perfil_usuario,
         u.estado,
-        e.id_empleado,
-        e.nombres,
-        e.apellidos,
-        e.id_sucursal,
-        s.nombre as sucursal_nombre
+        u.nombre_completo,
+        COALESCE(e.id_empleado, NULL) as id_empleado,
+        COALESCE(e.nombres, '') as nombres,
+        COALESCE(e.apellidos, '') as apellidos,
+        COALESCE(e.id_sucursal, NULL) as id_sucursal,
+        COALESCE(s.nombre, 'Sin sucursal') as sucursal_nombre
       FROM usuarios u
       LEFT JOIN empleados e ON u.id_usuario = e.id_usuario
       LEFT JOIN sucursales s ON e.id_sucursal = s.id_sucursal
-      WHERE u.id_usuario = ? AND u.estado = 1
+      WHERE u.id_usuario = ?
+        AND u.estado = 1
     `;
     
-    const users = await executeQuery(userQuery, [decoded.userId]);
+    console.log('Ejecutando query con userId:', userId); // Para debugging
+    
+    const users = await executeQuery(userQuery, [userId]);
     
     if (!users || users.length === 0) {
+      console.error('Usuario no encontrado o inactivo para ID:', userId);
       return responseError(res, 'Usuario no válido o inactivo', 401);
     }
 
@@ -49,13 +65,16 @@ async function authenticateToken(req, res, next) {
     req.user = {
       id_usuario: user.id_usuario,
       username: user.username,
-      perfil_usuario: user.perfil_usuario, // CAMBIADO: estructura simplificada
+      perfil_usuario: user.perfil_usuario,
+      nombre_completo: user.nombre_completo,
       id_empleado: user.id_empleado,
       nombres: user.nombres,
       apellidos: user.apellidos,
       id_sucursal: user.id_sucursal,
       sucursal_nombre: user.sucursal_nombre
     };
+
+    console.log('Usuario autenticado:', req.user.username); // Para debugging
 
     next();
   } catch (error) {
@@ -74,7 +93,7 @@ async function authenticateToken(req, res, next) {
 }
 
 /**
- * Middleware para autorizar roles específicos - ACTUALIZADO
+ * Middleware para autorizar roles específicos
  */
 function authorizeRoles(allowedRoles) {
   return (req, res, next) => {
@@ -83,7 +102,7 @@ function authorizeRoles(allowedRoles) {
         return responseError(res, 'Usuario no autenticado', 401);
       }
 
-      const userRole = req.user.perfil_usuario; // CAMBIADO: acceso directo al ENUM
+      const userRole = req.user.perfil_usuario;
       
       if (!allowedRoles.includes(userRole)) {
         return responseError(res, 'No tienes permisos para realizar esta acción', 403);
@@ -112,46 +131,24 @@ function requireGerenteOrDigitador(req, res, next) {
 }
 
 /**
- * Middleware de autenticación básica (cualquier usuario logueado)
+ * Middleware de autenticación básica
  */
 function requireAuth(req, res, next) {
   return authenticateToken(req, res, next);
 }
 
 /**
- * Verificar permisos granulares (para futura implementación)
- */
-async function checkPermission(userId, module, action) {
-  try {
-    // Para compatibilidad futura si implementas la tabla permisos
-    const permissionQuery = `
-      SELECT COUNT(*) as has_permission
-      FROM permisos 
-      WHERE id_usuario = ? 
-        AND modulo = ? 
-        AND puede_${action} = 1 
-        AND estado = 1
-    `;
-    
-    const result = await executeQuery(permissionQuery, [userId, module]);
-    return result[0].has_permission > 0;
-  } catch (error) {
-    // Si no existe la tabla permisos, usar roles básicos
-    console.log('Usando sistema de roles básico');
-    return true;
-  }
-}
-
-/**
- * Generar token JWT
+ * Generar token JWT - CORREGIDO
  */
 function generateToken(user) {
   const payload = {
-    userId: user.id_usuario,
+    userId: user.id_usuario || user.id, // CORRECCIÓN: asegurar que el ID se incluya correctamente
     username: user.username,
-    perfil: user.perfil_usuario, // CAMBIADO: estructura simplificada
+    perfil: user.perfil_usuario,
     iat: Math.floor(Date.now() / 1000)
   };
+
+  console.log('Generando token con payload:', payload); // Para debugging
 
   return jwt.sign(payload, process.env.JWT_SECRET || 'paints_system_secret_key_2024_very_secure', {
     expiresIn: process.env.JWT_EXPIRES_IN || '24h'
@@ -159,7 +156,7 @@ function generateToken(user) {
 }
 
 /**
- * Verificar token sin middleware (para funciones auxiliares)
+ * Verificar token sin middleware
  */
 function verifyToken(token) {
   try {
@@ -175,7 +172,6 @@ module.exports = {
   requireGerente,
   requireGerenteOrDigitador,
   requireAuth,
-  checkPermission,
   generateToken,
   verifyToken
 };
