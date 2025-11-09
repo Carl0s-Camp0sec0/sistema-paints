@@ -1,4 +1,4 @@
-// backend/src/repositories/productoRepository.js - ADAPTADO A TU BD REAL
+// backend/src/repositories/productoRepository.js - CORREGIDO
 const { executeQuery, getConnection } = require('../config/database');
 
 class ProductoRepository {
@@ -30,7 +30,7 @@ class ProductoRepository {
           col.nombre as color_nombre
         FROM productos p
         LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-        LEFT JOIN unidades_medida um ON p.id_unidad_medida = um.id_unidad_medida
+        LEFT JOIN unidades_medida um ON p.id_unidad_medida = um.id_unidad
         LEFT JOIN colores col ON p.id_color = col.id_color
         WHERE 1=1
       `;
@@ -78,9 +78,9 @@ class ProductoRepository {
       baseQuery += ` LIMIT ? OFFSET ?`;
       queryParams.push(limit, offset);
 
-      // Ejecutar consultas usando executeQuery
+      // Ejecutar consultas
       const productos = await executeQuery(baseQuery, queryParams);
-      const totalResult = await executeQuery(countQuery, queryParams.slice(0, -2)); // Remover limit y offset para el conteo
+      const totalResult = await executeQuery(countQuery, queryParams.slice(0, -2));
 
       const total = totalResult[0].total;
       const totalPages = Math.ceil(total / limit);
@@ -106,7 +106,7 @@ class ProductoRepository {
   // Obtener productos para select (formato simplificado)
   static async findForSelect(filters = {}) {
     try {
-      const { categoria, estado = 'Activo' } = filters; // Cambiado a 'Activo' (con mayúscula)
+      const { categoria, estado = 'Activo' } = filters;
 
       let query = `
         SELECT 
@@ -164,7 +164,7 @@ class ProductoRepository {
     }
   }
 
-  // Buscar producto por ID
+  // Buscar producto por ID - CORREGIDO
   static async findById(id) {
     try {
       const query = `
@@ -176,7 +176,7 @@ class ProductoRepository {
           col.nombre as color_nombre
         FROM productos p
         LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-        LEFT JOIN unidades_medida um ON p.id_unidad_medida = um.id_unidad_medida
+        LEFT JOIN unidades_medida um ON p.id_unidad_medida = um.id_unidad
         LEFT JOIN colores col ON p.id_color = col.id_color
         WHERE p.id_producto = ?
       `;
@@ -210,7 +210,7 @@ class ProductoRepository {
     }
   }
 
-  // Crear nuevo producto
+  // Crear nuevo producto - CORREGIDO
   static async create(productoData) {
     try {
       const query = `
@@ -263,7 +263,6 @@ class ProductoRepository {
         return false;
       }
 
-      // No agregar fecha_actualizacion porque no existe en tu BD
       values.push(id);
 
       const query = `UPDATE productos SET ${fields.join(', ')} WHERE id_producto = ?`;
@@ -290,13 +289,13 @@ class ProductoRepository {
         [precioNuevo, id]
       );
 
-      // Registrar en historial de precios
+      // Insertar en historial de precios
       await connection.execute(
         `INSERT INTO historial_precios (
-          id_producto, precio_venta, fecha_inicio, 
-          motivo_cambio, estado_precio
-        ) VALUES (?, ?, NOW(), ?, 'Activo')`,
-        [id, precioNuevo, motivo]
+          id_producto, precio_venta, precio_compra, fecha_inicio, 
+          motivo, estado_precio
+        ) VALUES (?, ?, ?, NOW(), ?, 'Activo')`,
+        [id, precioNuevo, precioAnterior, motivo]
       );
 
       await connection.commit();
@@ -311,16 +310,28 @@ class ProductoRepository {
     }
   }
 
+  // Eliminar producto (soft delete)
+  static async delete(id) {
+    try {
+      const query = `UPDATE productos SET estado = 'Inactivo' WHERE id_producto = ?`;
+      const result = await executeQuery(query, [id]);
+      return result.affectedRows > 0;
+
+    } catch (error) {
+      console.error('Error en ProductoRepository.delete:', error);
+      throw error;
+    }
+  }
+
   // Obtener historial de precios
   static async getPriceHistory(id) {
     try {
       const query = `
         SELECT 
           hp.*,
-          e.nombres as empleado_nombres,
-          e.apellidos as empleado_apellidos
+          u.username as modificado_por
         FROM historial_precios hp
-        LEFT JOIN empleados e ON hp.id_empleado_modifico = e.id_empleado
+        LEFT JOIN usuarios u ON hp.id_empleado_modifico = u.id_usuario
         WHERE hp.id_producto = ?
         ORDER BY hp.fecha_inicio DESC
       `;
@@ -330,7 +341,7 @@ class ProductoRepository {
 
     } catch (error) {
       console.error('Error en ProductoRepository.getPriceHistory:', error);
-      return []; // Si no existe la tabla, retornar array vacío
+      throw error;
     }
   }
 
@@ -339,12 +350,7 @@ class ProductoRepository {
     try {
       const query = `SELECT stock_actual FROM productos WHERE id_producto = ?`;
       const result = await executeQuery(query, [id]);
-      
-      if (result.length === 0) {
-        return null;
-      }
-      
-      return result[0].stock_actual;
+      return result.length > 0 ? result[0].stock_actual : null;
 
     } catch (error) {
       console.error('Error en ProductoRepository.getStock:', error);
@@ -352,83 +358,45 @@ class ProductoRepository {
     }
   }
 
-  // Verificar si el producto está en uso
-  static async isInUse(id) {
+  // Actualizar stock
+  static async updateStock(id, nuevoStock) {
     try {
-      const query = `
-        SELECT COUNT(*) as count 
-        FROM detalle_facturas df
-        INNER JOIN facturas f ON df.id_factura = f.id_factura
-        WHERE df.id_producto = ? AND f.estado = 'Activa'
-      `;
-
-      const result = await executeQuery(query, [id]);
-      return result[0].count > 0;
-
-    } catch (error) {
-      console.error('Error en ProductoRepository.isInUse:', error);
-      // Si las tablas no existen, asumir que no está en uso
-      return false;
-    }
-  }
-
-  // Eliminar producto (soft delete)
-  static async delete(id) {
-    try {
-      const query = `UPDATE productos SET estado = 'Inactivo' WHERE id_producto = ?`;
-      const result = await executeQuery(query, [id]);
-      
+      const query = `UPDATE productos SET stock_actual = ? WHERE id_producto = ?`;
+      const result = await executeQuery(query, [nuevoStock, id]);
       return result.affectedRows > 0;
 
     } catch (error) {
-      console.error('Error en ProductoRepository.delete:', error);
+      console.error('Error en ProductoRepository.updateStock:', error);
       throw error;
     }
   }
 
-  // Actualizar stock de producto
-  static async updateStock(id, nuevoStock, motivo = 'Actualización manual') {
-    const connection = await getConnection();
-    
+  // Buscar productos por término
+  static async search(searchTerm, limit = 10) {
     try {
-      await connection.beginTransaction();
+      const query = `
+        SELECT 
+          p.id_producto,
+          p.codigo,
+          p.nombre,
+          p.precio_venta,
+          p.stock_actual,
+          c.nombre as categoria_nombre
+        FROM productos p
+        LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
+        WHERE p.estado = 'Activo'
+        AND (p.codigo LIKE ? OR p.nombre LIKE ?)
+        ORDER BY p.nombre ASC
+        LIMIT ?
+      `;
 
-      // Obtener stock actual
-      const [currentStock] = await connection.execute(
-        `SELECT stock_actual FROM productos WHERE id_producto = ?`,
-        [id]
-      );
-
-      if (currentStock.length === 0) {
-        throw new Error('Producto no encontrado');
-      }
-
-      const stockAnterior = currentStock[0].stock_actual;
-
-      // Actualizar stock
-      await connection.execute(
-        `UPDATE productos SET stock_actual = ? WHERE id_producto = ?`,
-        [nuevoStock, id]
-      );
-
-      // Registrar en movimientos de inventario
-      await connection.execute(
-        `INSERT INTO movimientos_inventario (
-          id_producto, tipo_movimiento, cantidad, stock_anterior, 
-          stock_nuevo, motivo, fecha_movimiento
-        ) VALUES (?, 'Ajuste', ?, ?, ?, ?, NOW())`,
-        [id, nuevoStock - stockAnterior, stockAnterior, nuevoStock, motivo]
-      );
-
-      await connection.commit();
-      return true;
+      const searchPattern = `%${searchTerm}%`;
+      const productos = await executeQuery(query, [searchPattern, searchPattern, limit]);
+      return productos;
 
     } catch (error) {
-      await connection.rollback();
-      console.error('Error en ProductoRepository.updateStock:', error);
+      console.error('Error en ProductoRepository.search:', error);
       throw error;
-    } finally {
-      connection.release();
     }
   }
 }

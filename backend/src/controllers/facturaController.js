@@ -1,230 +1,266 @@
-// backend/src/controllers/facturaController.js - VERSIÓN BÁSICA FUNCIONAL
-
+// backend/src/controllers/facturaController.js - CON GENERACIÓN PDF
+const FacturaRepository = require('../repositories/facturaRepository');
 const { responseSuccess, responseError } = require('../utils/responses');
-const { executeQuery } = require('../config/database');
+const { generateFacturaPDF } = require('../utils/pdfGenerator');
 
 class FacturaController {
   
-  // Obtener todas las facturas
-  static async obtenerFacturas(req, res) {
+  // Obtener todas las facturas con filtros
+  static async getAll(req, res) {
     try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const search = req.query.search || '';
+      const { 
+        page = 1, 
+        limit = 10, 
+        cliente, 
+        fecha_inicio,
+        fecha_fin,
+        estado = 'Activa',
+        numero_factura
+      } = req.query;
 
-      const offset = (page - 1) * limit;
-      
-      let whereClause = 'WHERE 1=1';
-      let params = [];
-      
-      if (search) {
-        whereClause += ` AND (
-          f.numero_factura LIKE ? OR 
-          CONCAT(c.nombres, ' ', c.apellidos) LIKE ?
-        )`;
-        const searchTerm = `%${search}%`;
-        params.push(searchTerm, searchTerm);
-      }
+      const filters = {
+        cliente: cliente ? parseInt(cliente) : null,
+        fecha_inicio,
+        fecha_fin,
+        estado,
+        numero_factura
+      };
 
-      // Query principal (simplificado para que funcione)
-      const sql = `
-        SELECT 
-          1 as id_factura,
-          'A001' as numero_factura,
-          NOW() as fecha_factura,
-          100.00 as total_factura,
-          'Activa' as estado_factura,
-          'Cliente Demo' as cliente_nombre
-        LIMIT ? OFFSET ?
-      `;
+      const pagination = {
+        page: parseInt(page),
+        limit: Math.min(parseInt(limit), 100)
+      };
 
-      params.push(limit, offset);
-      const facturas = await executeQuery(sql, params);
+      const result = await FacturaRepository.findAll(filters, pagination);
 
-      // Count simplificado
-      const countSql = `SELECT 1 as total`;
-      const [countResult] = await executeQuery(countSql);
-      const total = countResult?.total || 0;
-
-      return responseSuccess(res, 'Facturas obtenidas exitosamente', facturas, 200, {
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
-          totalRecords: total,
-          hasNext: page * limit < total,
-          hasPrev: page > 1,
-          limit: parseInt(limit)
-        }
+      return responseSuccess(res, 'Facturas obtenidas exitosamente', {
+        facturas: result.facturas,
+        pagination: result.pagination
       });
+
     } catch (error) {
-      console.error('Error en obtenerFacturas:', error);
+      console.error('Error en getAll facturas:', error);
       return responseError(res, 'Error al obtener facturas', 500);
     }
   }
 
   // Obtener factura por ID
-  static async obtenerFacturaPorId(req, res) {
+  static async getById(req, res) {
     try {
       const { id } = req.params;
-      
-      // Respuesta demo
-      const factura = {
-        id_factura: id,
-        numero_factura: `A${String(id).padStart(3, '0')}`,
-        fecha_factura: new Date(),
-        total_factura: 150.00,
-        estado_factura: 'Activa',
-        cliente_nombre: 'Cliente Demo'
-      };
-      
+
+      if (!id || isNaN(parseInt(id))) {
+        return responseError(res, 'ID de factura inválido', 400);
+      }
+
+      const factura = await FacturaRepository.findById(id);
+
+      if (!factura) {
+        return responseError(res, 'Factura no encontrada', 404);
+      }
+
       return responseSuccess(res, 'Factura obtenida exitosamente', factura);
+
     } catch (error) {
-      console.error('Error en obtenerFacturaPorId:', error);
+      console.error('Error en getById factura:', error);
       return responseError(res, 'Error al obtener factura', 500);
     }
   }
 
   // Crear nueva factura
-  static async crearFactura(req, res) {
+  static async create(req, res) {
     try {
-      const facturaData = req.body;
-      
+      const {
+        id_cliente,
+        id_serie,
+        productos, // Array de productos con cantidad
+        medios_pago,
+        observaciones
+      } = req.body;
+
       // Validaciones básicas
-      if (!facturaData.id_cliente) {
-        return responseError(res, 'El cliente es obligatorio', 400);
+      if (!id_cliente || !id_serie || !productos || !Array.isArray(productos) || productos.length === 0) {
+        return responseError(res, 'Cliente, serie y productos son requeridos', 400);
       }
 
-      if (!facturaData.productos || facturaData.productos.length === 0) {
-        return responseError(res, 'Debe agregar al menos un producto', 400);
+      if (!medios_pago || !Array.isArray(medios_pago) || medios_pago.length === 0) {
+        return responseError(res, 'Debe especificar al menos un medio de pago', 400);
       }
 
-      // Por ahora retornamos éxito básico
-      const nuevaFactura = {
-        id_factura: Math.floor(Math.random() * 1000) + 1,
-        numero_factura: 'A' + String(Math.floor(Math.random() * 1000) + 1).padStart(3, '0'),
-        fecha_factura: new Date(),
-        total_factura: 200.00,
-        estado_factura: 'Activa'
+      // Validar que los productos tengan la estructura correcta
+      for (let producto of productos) {
+        if (!producto.id_producto || !producto.cantidad || producto.cantidad <= 0) {
+          return responseError(res, 'Todos los productos deben tener ID y cantidad válida', 400);
+        }
+      }
+
+      // Crear la factura usando el repositorio
+      const facturaData = {
+        id_cliente: parseInt(id_cliente),
+        id_serie: parseInt(id_serie),
+        id_empleado: req.user.id, // Usuario autenticado
+        productos,
+        medios_pago,
+        observaciones: observaciones?.trim()
       };
 
+      const facturaId = await FacturaRepository.create(facturaData);
+      const nuevaFactura = await FacturaRepository.findById(facturaId);
+
       return responseSuccess(res, 'Factura creada exitosamente', nuevaFactura, 201);
+
     } catch (error) {
-      console.error('Error en crearFactura:', error);
+      console.error('Error en create factura:', error);
+
+      if (error.message.includes('Stock insuficiente')) {
+        return responseError(res, error.message, 400);
+      }
+
+      if (error.message.includes('Producto no encontrado')) {
+        return responseError(res, error.message, 400);
+      }
+
+      if (error.message.includes('Cliente no encontrado')) {
+        return responseError(res, 'Cliente no encontrado', 400);
+      }
+
       return responseError(res, 'Error al crear factura', 500);
     }
   }
 
-  // Validar stock
-  static async validarStock(req, res) {
+  // Generar PDF de la factura
+  static async generatePDF(req, res) {
     try {
-      const { productos } = req.body;
-      
-      if (!productos || productos.length === 0) {
-        return responseError(res, 'Debe proporcionar productos para validar', 400);
+      const { id } = req.params;
+
+      if (!id || isNaN(parseInt(id))) {
+        return responseError(res, 'ID de factura inválido', 400);
       }
 
-      // Por ahora retornamos que todo está disponible
-      const resultados = productos.map(producto => ({
-        id_producto: producto.id_producto,
-        cantidad_requerida: producto.cantidad,
-        stock_actual: 100, // Demo
-        disponible: true
-      }));
+      // Obtener datos completos de la factura
+      const factura = await FacturaRepository.findById(id);
 
-      return responseSuccess(res, 'Stock validado exitosamente', resultados);
+      if (!factura) {
+        return responseError(res, 'Factura no encontrada', 404);
+      }
+
+      // Generar el PDF
+      const pdfBuffer = await generateFacturaPDF(factura);
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Factura_${factura.numero_factura}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      // Enviar el PDF
+      res.send(pdfBuffer);
+
     } catch (error) {
-      console.error('Error en validarStock:', error);
-      return responseError(res, 'Error al validar stock', 500);
+      console.error('Error en generatePDF factura:', error);
+      return responseError(res, 'Error al generar PDF de la factura', 500);
     }
   }
 
   // Anular factura
-  static async anularFactura(req, res) {
+  static async anular(req, res) {
     try {
       const { id } = req.params;
-      
-      if (!id || isNaN(id)) {
+      const { motivo_anulacion } = req.body;
+
+      if (!id || isNaN(parseInt(id))) {
         return responseError(res, 'ID de factura inválido', 400);
       }
 
-      // Por ahora solo retornamos éxito
-      return responseSuccess(res, 'Factura anulada exitosamente', null);
+      if (!motivo_anulacion || motivo_anulacion.trim().length < 5) {
+        return responseError(res, 'Debe proporcionar un motivo de anulación válido (mínimo 5 caracteres)', 400);
+      }
+
+      // Verificar que la factura existe y está activa
+      const factura = await FacturaRepository.findById(id);
+
+      if (!factura) {
+        return responseError(res, 'Factura no encontrada', 404);
+      }
+
+      if (factura.estado !== 'Activa') {
+        return responseError(res, 'Solo se pueden anular facturas activas', 400);
+      }
+
+      // Anular la factura
+      const anulada = await FacturaRepository.anular(id, motivo_anulacion.trim(), req.user.id);
+
+      if (!anulada) {
+        return responseError(res, 'Error al anular la factura', 500);
+      }
+
+      return responseSuccess(res, 'Factura anulada exitosamente');
+
     } catch (error) {
-      console.error('Error en anularFactura:', error);
+      console.error('Error en anular factura:', error);
       return responseError(res, 'Error al anular factura', 500);
     }
   }
 
-  // Buscar por número
+  // Obtener estadísticas de facturas
+  static async getStats(req, res) {
+    try {
+      const { fecha_inicio, fecha_fin } = req.query;
+
+      const stats = await FacturaRepository.getStats(fecha_inicio, fecha_fin);
+
+      return responseSuccess(res, 'Estadísticas obtenidas exitosamente', stats);
+
+    } catch (error) {
+      console.error('Error en getStats facturas:', error);
+      return responseError(res, 'Error al obtener estadísticas', 500);
+    }
+  }
+
+  // Obtener reporte de ventas
+  static async getReporteVentas(req, res) {
+    try {
+      const { 
+        fecha_inicio, 
+        fecha_fin, 
+        agrupacion = 'dia', // dia, semana, mes
+        incluir_anuladas = false 
+      } = req.query;
+
+      if (!fecha_inicio || !fecha_fin) {
+        return responseError(res, 'Fecha de inicio y fin son requeridas', 400);
+      }
+
+      const reporte = await FacturaRepository.getReporteVentas({
+        fecha_inicio,
+        fecha_fin,
+        agrupacion,
+        incluir_anuladas: incluir_anuladas === 'true'
+      });
+
+      return responseSuccess(res, 'Reporte de ventas obtenido exitosamente', reporte);
+
+    } catch (error) {
+      console.error('Error en getReporteVentas:', error);
+      return responseError(res, 'Error al obtener reporte de ventas', 500);
+    }
+  }
+
+  // Buscar facturas por número
   static async buscarPorNumero(req, res) {
     try {
-      const { numero_factura } = req.params;
-      
-      const factura = {
-        id_factura: 1,
-        numero_factura: numero_factura,
-        fecha_factura: new Date(),
-        total_factura: 150.00,
-        estado_factura: 'Activa',
-        cliente_nombre: 'Cliente Demo'
-      };
-      
-      return responseSuccess(res, 'Factura encontrada', factura);
-    } catch (error) {
-      console.error('Error en buscarPorNumero:', error);
-      return responseError(res, 'Error al buscar factura', 500);
-    }
-  }
+      const { numero } = req.query;
 
-  // Obtener detalles para impresión
-  static async obtenerDetalleParaImpresion(req, res) {
-    try {
-      const { id } = req.params;
-      
-      const detalle = {
-        factura: {
-          id_factura: id,
-          numero_factura: `A${String(id).padStart(3, '0')}`,
-          fecha_factura: new Date(),
-          total_factura: 150.00
-        },
-        cliente: {
-          nombres: 'Cliente',
-          apellidos: 'Demo',
-          nit: 'CF'
-        },
-        productos: [
-          {
-            codigo: 'P001',
-            nombre: 'Producto Demo',
-            cantidad: 1,
-            precio_unitario: 150.00,
-            subtotal: 150.00
-          }
-        ]
-      };
-      
-      return responseSuccess(res, 'Detalle para impresión obtenido', detalle);
-    } catch (error) {
-      console.error('Error en obtenerDetalleParaImpresion:', error);
-      return responseError(res, 'Error al obtener detalle', 500);
-    }
-  }
+      if (!numero || numero.trim().length < 3) {
+        return responseError(res, 'Debe proporcionar al menos 3 caracteres para buscar', 400);
+      }
 
-  // Obtener próximo número
-  static async obtenerProximoNumero(req, res) {
-    try {
-      const { id_serie } = req.params;
-      
-      const proximoNumero = {
-        proximo_numero: Math.floor(Math.random() * 100) + 1,
-        serie: 'A'
-      };
-      
-      return responseSuccess(res, 'Próximo número obtenido', proximoNumero);
+      const facturas = await FacturaRepository.buscarPorNumero(numero.trim());
+
+      return responseSuccess(res, 'Búsqueda completada exitosamente', facturas);
+
     } catch (error) {
-      console.error('Error en obtenerProximoNumero:', error);
-      return responseError(res, 'Error al obtener próximo número', 500);
+      console.error('Error en buscarPorNumero facturas:', error);
+      return responseError(res, 'Error al buscar facturas', 500);
     }
   }
 }

@@ -1,169 +1,194 @@
-// backend/src/middleware/auth.js - CORREGIDO PARA TU SISTEMA
+// backend/src/middlewares/auth.js - CORREGIDO
 const jwt = require('jsonwebtoken');
-const { jwtConfig } = require('../config/jwt');
-const { responseError } = require('../utils/responses');
+const { executeQuery } = require('../config/database');
 
-// Middleware para verificar token JWT
-const authenticateToken = (req, res, next) => {
+/**
+ * Middleware de autenticación JWT
+ * Verifica el token y carga la información del usuario
+ */
+const authenticateToken = async (req, res, next) => {
   try {
-    // Obtener token del header Authorization o de las cookies
+    // Intentar obtener token del header Authorization
     const authHeader = req.headers.authorization;
+    const headerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    
+    // Intentar obtener token de las cookies
     const cookieToken = req.cookies?.authToken;
     
-    let token = null;
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    } else if (cookieToken) {
-      token = cookieToken;
-    }
+    // Usar el token disponible (priorizar header)
+    const token = headerToken || cookieToken;
 
     if (!token) {
-      return responseError(res, 'Token de acceso requerido', 401);
+      console.log('❌ No se encontró token de autenticación');
+      return res.status(401).json({
+        success: false,
+        message: 'Token de acceso requerido',
+        code: 'NO_TOKEN'
+      });
     }
 
-    // Verificar y decodificar el token
-    jwt.verify(token, jwtConfig.secret, (err, decoded) => {
-      if (err) {
-        console.log('Error JWT:', err.name);
-        if (err.name === 'TokenExpiredError') {
-          return responseError(res, 'Token expirado', 401);
-        } else if (err.name === 'JsonWebTokenError') {
-          return responseError(res, 'Token inválido', 401);
-        } else {
-          return responseError(res, 'Error de autenticación', 401);
-        }
-      }
+    console.log('🔐 Authorization header present');
 
-      // Agregar información del usuario al objeto request
-      req.user = {
-        id: decoded.id || decoded.id_usuario,
-        nombre: decoded.nombre || decoded.nombre_completo,
-        email: decoded.email,
-        rol: decoded.rol || decoded.perfil_usuario,
-        id_sucursal: decoded.id_sucursal,
-        username: decoded.username
-      };
-
-      console.log('Usuario autenticado:', req.user.username, 'Rol:', req.user.rol);
-      next();
-    });
-
-  } catch (error) {
-    console.error('Error en authenticateToken:', error);
-    return responseError(res, 'Error interno de autenticación', 500);
-  }
-};
-
-// Middleware para autorizar roles específicos
-const authorizeRoles = (allowedRoles = []) => {
-  return (req, res, next) => {
+    // Verificar el token
+    let decoded;
     try {
-      // Verificar que el usuario esté autenticado
-      if (!req.user) {
-        return responseError(res, 'Usuario no autenticado', 401);
-      }
-
-      // Verificar si el rol del usuario está permitido
-      if (!allowedRoles.includes(req.user.rol)) {
-        return responseError(res, 'Acceso denegado: permisos insuficientes', 403, {
-          requiredRoles: allowedRoles,
-          userRole: req.user.rol
-        });
-      }
-
-      next();
-
-    } catch (error) {
-      console.error('Error en authorizeRoles:', error);
-      return responseError(res, 'Error interno de autorización', 500);
-    }
-  };
-};
-
-// Middleware para verificar acceso a sucursal específica
-const authorizeSucursal = (req, res, next) => {
-  try {
-    const { id_sucursal } = req.params;
-    const userSucursal = req.user.id_sucursal;
-
-    // Los gerentes pueden acceder a cualquier sucursal
-    if (req.user.rol === 'Gerente') {
-      return next();
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      console.log('❌ Token inválido:', jwtError.message);
+      return res.status(401).json({
+        success: false,
+        message: 'Token inválido o expirado',
+        code: 'INVALID_TOKEN'
+      });
     }
 
-    // Otros roles solo pueden acceder a su propia sucursal
-    if (id_sucursal && parseInt(id_sucursal) !== userSucursal) {
-      return responseError(res, 'Acceso denegado: no puede acceder a esta sucursal', 403);
+    // Buscar el usuario en la base de datos
+    const query = `
+      SELECT 
+        u.id_usuario,
+        u.username,
+        u.perfil_usuario as rol,
+        u.nombre_completo,
+        u.email,
+        u.estado,
+        u.ultimo_acceso
+      FROM usuarios u 
+      WHERE u.id_usuario = ? AND u.estado = 1
+    `;
+
+    const usuarios = await executeQuery(query, [decoded.userId]);
+
+    if (usuarios.length === 0) {
+      console.log('❌ Usuario no encontrado o inactivo:', decoded.userId);
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no encontrado o inactivo',
+        code: 'USER_NOT_FOUND'
+      });
     }
+
+    const usuario = usuarios[0];
+
+    // Agregar información del usuario al request
+    req.user = {
+      id: usuario.id_usuario,
+      username: usuario.username,
+      rol: usuario.rol,
+      nombre_completo: usuario.nombre_completo,
+      email: usuario.email,
+      ultimo_acceso: usuario.ultimo_acceso
+    };
+
+    console.log(`Usuario autenticado: ${usuario.username} Rol: ${usuario.rol}`);
+
+    // Actualizar último acceso (opcional, puede ser pesado en muchas requests)
+    // await executeQuery('UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = ?', [usuario.id_usuario]);
 
     next();
 
   } catch (error) {
-    console.error('Error en authorizeSucursal:', error);
-    return responseError(res, 'Error interno de autorización de sucursal', 500);
+    console.error('❌ Error en middleware de autenticación:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor en autenticación',
+      code: 'AUTH_ERROR'
+    });
   }
 };
 
-// Middleware opcional de autenticación (para rutas públicas)
-const optionalAuth = (req, res, next) => {
+/**
+ * Middleware de autorización por rol
+ * Verifica que el usuario tenga los permisos necesarios
+ */
+const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Acceso no autorizado - Usuario no autenticado',
+        code: 'NOT_AUTHENTICATED'
+      });
+    }
+
+    if (!roles.includes(req.user.rol)) {
+      console.log(`❌ Acceso denegado. Usuario ${req.user.username} con rol ${req.user.rol} intentó acceder a recurso que requiere: ${roles.join(', ')}`);
+      return res.status(403).json({
+        success: false,
+        message: `Acceso denegado. Se requiere uno de los siguientes roles: ${roles.join(', ')}`,
+        code: 'INSUFFICIENT_PERMISSIONS',
+        required_roles: roles,
+        user_role: req.user.rol
+      });
+    }
+
+    console.log(`✅ Acceso autorizado para ${req.user.username} (${req.user.rol})`);
+    next();
+  };
+};
+
+/**
+ * Middleware opcional de autenticación
+ * No bloquea si no hay token, pero carga el usuario si está presente
+ */
+const optionalAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    const headerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
     const cookieToken = req.cookies?.authToken;
-    
-    let token = null;
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    } else if (cookieToken) {
-      token = cookieToken;
-    }
+    const token = headerToken || cookieToken;
 
     if (!token) {
+      // No hay token, continuar sin usuario
+      req.user = null;
       return next();
     }
 
-    jwt.verify(token, jwtConfig.secret, (err, decoded) => {
-      if (err) {
-        return next();
+    // Hay token, intentar autenticar
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      const query = `
+        SELECT 
+          u.id_usuario,
+          u.username,
+          u.perfil_usuario as rol,
+          u.nombre_completo,
+          u.email
+        FROM usuarios u 
+        WHERE u.id_usuario = ? AND u.estado = 1
+      `;
+
+      const usuarios = await executeQuery(query, [decoded.userId]);
+
+      if (usuarios.length > 0) {
+        const usuario = usuarios[0];
+        req.user = {
+          id: usuario.id_usuario,
+          username: usuario.username,
+          rol: usuario.rol,
+          nombre_completo: usuario.nombre_completo,
+          email: usuario.email
+        };
+      } else {
+        req.user = null;
       }
 
-      req.user = {
-        id: decoded.id || decoded.id_usuario,
-        nombre: decoded.nombre || decoded.nombre_completo,
-        email: decoded.email,
-        rol: decoded.rol || decoded.perfil_usuario,
-        id_sucursal: decoded.id_sucursal,
-        username: decoded.username
-      };
+    } catch (jwtError) {
+      // Token inválido, continuar sin usuario
+      req.user = null;
+    }
 
-      next();
-    });
+    next();
 
   } catch (error) {
+    console.error('❌ Error en middleware de autenticación opcional:', error);
+    req.user = null;
     next();
   }
-};
-
-// Función para verificar permisos específicos
-const hasPermission = (req, permission) => {
-  if (!req.user) return false;
-
-  const rolePermissions = {
-    'Gerente': ['all'],
-    'Digitador': ['read', 'create', 'update'],
-    'Cajero': ['read']
-  };
-
-  const userPermissions = rolePermissions[req.user.rol] || [];
-  
-  return userPermissions.includes('all') || userPermissions.includes(permission);
 };
 
 module.exports = {
   authenticateToken,
   authorizeRoles,
-  authorizeSucursal,
-  optionalAuth,
-  hasPermission
+  optionalAuth
 };
