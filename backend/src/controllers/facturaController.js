@@ -1,12 +1,11 @@
-// backend/src/controllers/facturaController.js - CON GENERACIÓN PDF
+// backend/src/controllers/facturaController.js - CORREGIDO PARA TU PROYECTO ACTUAL
 const FacturaRepository = require('../repositories/facturaRepository');
 const { responseSuccess, responseError } = require('../utils/responses');
-const { generateFacturaPDF } = require('../utils/pdfGenerator');
 
 class FacturaController {
   
-  // Obtener todas las facturas con filtros
-  static async getAll(req, res) {
+  // Obtener todas las facturas (coincide con obtenerFacturas)
+  static async obtenerFacturas(req, res) {
     try {
       const { 
         page = 1, 
@@ -39,13 +38,13 @@ class FacturaController {
       });
 
     } catch (error) {
-      console.error('Error en getAll facturas:', error);
+      console.error('Error en obtenerFacturas:', error);
       return responseError(res, 'Error al obtener facturas', 500);
     }
   }
 
-  // Obtener factura por ID
-  static async getById(req, res) {
+  // Obtener factura por ID (coincide con obtenerFacturaPorId)
+  static async obtenerFacturaPorId(req, res) {
     try {
       const { id } = req.params;
 
@@ -62,13 +61,13 @@ class FacturaController {
       return responseSuccess(res, 'Factura obtenida exitosamente', factura);
 
     } catch (error) {
-      console.error('Error en getById factura:', error);
+      console.error('Error en obtenerFacturaPorId:', error);
       return responseError(res, 'Error al obtener factura', 500);
     }
   }
 
-  // Crear nueva factura
-  static async create(req, res) {
+  // Crear nueva factura (coincide con crearFactura)
+  static async crearFactura(req, res) {
     try {
       const {
         id_cliente,
@@ -110,7 +109,7 @@ class FacturaController {
       return responseSuccess(res, 'Factura creada exitosamente', nuevaFactura, 201);
 
     } catch (error) {
-      console.error('Error en create factura:', error);
+      console.error('Error en crearFactura:', error);
 
       if (error.message.includes('Stock insuficiente')) {
         return responseError(res, error.message, 400);
@@ -128,41 +127,8 @@ class FacturaController {
     }
   }
 
-  // Generar PDF de la factura
-  static async generatePDF(req, res) {
-    try {
-      const { id } = req.params;
-
-      if (!id || isNaN(parseInt(id))) {
-        return responseError(res, 'ID de factura inválido', 400);
-      }
-
-      // Obtener datos completos de la factura
-      const factura = await FacturaRepository.findById(id);
-
-      if (!factura) {
-        return responseError(res, 'Factura no encontrada', 404);
-      }
-
-      // Generar el PDF
-      const pdfBuffer = await generateFacturaPDF(factura);
-
-      // Configurar headers para descarga
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="Factura_${factura.numero_factura}.pdf"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-
-      // Enviar el PDF
-      res.send(pdfBuffer);
-
-    } catch (error) {
-      console.error('Error en generatePDF factura:', error);
-      return responseError(res, 'Error al generar PDF de la factura', 500);
-    }
-  }
-
-  // Anular factura
-  static async anular(req, res) {
+  // Anular factura (coincide con anularFactura)
+  static async anularFactura(req, res) {
     try {
       const { id } = req.params;
       const { motivo_anulacion } = req.body;
@@ -196,13 +162,145 @@ class FacturaController {
       return responseSuccess(res, 'Factura anulada exitosamente');
 
     } catch (error) {
-      console.error('Error en anular factura:', error);
+      console.error('Error en anularFactura:', error);
       return responseError(res, 'Error al anular factura', 500);
     }
   }
 
+  // Validar stock (coincide con validarStock)
+  static async validarStock(req, res) {
+    try {
+      const { productos } = req.body;
+
+      if (!productos || !Array.isArray(productos)) {
+        return responseError(res, 'Lista de productos requerida', 400);
+      }
+
+      const validaciones = await FacturaRepository.validarStock(productos);
+
+      return responseSuccess(res, 'Validación de stock completada', validaciones);
+
+    } catch (error) {
+      console.error('Error en validarStock:', error);
+      return responseError(res, 'Error al validar stock', 500);
+    }
+  }
+
+  // Buscar por número (coincide con buscarPorNumero)
+  static async buscarPorNumero(req, res) {
+    try {
+      const { numero_factura } = req.params;
+
+      if (!numero_factura || numero_factura.trim().length < 3) {
+        return responseError(res, 'Debe proporcionar al menos 3 caracteres para buscar', 400);
+      }
+
+      const facturas = await FacturaRepository.buscarPorNumero(numero_factura.trim());
+
+      return responseSuccess(res, 'Búsqueda completada exitosamente', facturas);
+
+    } catch (error) {
+      console.error('Error en buscarPorNumero:', error);
+      return responseError(res, 'Error al buscar facturas', 500);
+    }
+  }
+
+  // Obtener detalle para impresión (coincide con obtenerDetalleParaImpresion)
+  static async obtenerDetalleParaImpresion(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id || isNaN(parseInt(id))) {
+        return responseError(res, 'ID de factura inválido', 400);
+      }
+
+      // Obtener datos completos de la factura para impresión
+      const factura = await FacturaRepository.findById(id);
+
+      if (!factura) {
+        return responseError(res, 'Factura no encontrada', 404);
+      }
+
+      // Formatear datos específicamente para impresión
+      const facturaImpresion = {
+        ...factura,
+        fecha_emision_formateada: new Date(factura.fecha_emision).toLocaleDateString('es-GT'),
+        total_formateado: `Q ${parseFloat(factura.total).toFixed(2)}`,
+        subtotal_formateado: `Q ${parseFloat(factura.subtotal).toFixed(2)}`,
+        productos_formateados: factura.productos?.map(p => ({
+          ...p,
+          precio_formateado: `Q ${parseFloat(p.precio_unitario || 0).toFixed(2)}`,
+          total_formateado: `Q ${(parseFloat(p.precio_unitario || 0) * parseFloat(p.cantidad || 0)).toFixed(2)}`
+        }))
+      };
+
+      return responseSuccess(res, 'Detalle para impresión obtenido exitosamente', facturaImpresion);
+
+    } catch (error) {
+      console.error('Error en obtenerDetalleParaImpresion:', error);
+      return responseError(res, 'Error al obtener detalle para impresión', 500);
+    }
+  }
+
+  // Obtener próximo número (coincide con obtenerProximoNumero)
+  static async obtenerProximoNumero(req, res) {
+    try {
+      const { id_serie } = req.params;
+
+      if (!id_serie || isNaN(parseInt(id_serie))) {
+        return responseError(res, 'ID de serie inválido', 400);
+      }
+
+      const proximoNumero = await FacturaRepository.obtenerProximoNumero(id_serie);
+
+      return responseSuccess(res, 'Próximo número obtenido exitosamente', { 
+        proximo_numero: proximoNumero 
+      });
+
+    } catch (error) {
+      console.error('Error en obtenerProximoNumero:', error);
+      return responseError(res, 'Error al obtener próximo número', 500);
+    }
+  }
+
+  // Generar PDF de la factura
+  static async generarPDF(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id || isNaN(parseInt(id))) {
+        return responseError(res, 'ID de factura inválido', 400);
+      }
+
+      // Obtener datos completos de la factura
+      const factura = await FacturaRepository.findById(id);
+
+      if (!factura) {
+        return responseError(res, 'Factura no encontrada', 404);
+      }
+
+      // Import del generador PDF (solo si se necesita)
+      const { generateFacturaPDF } = require('../utils/pdfGenerator');
+      
+      // Generar el PDF
+      const pdfBuffer = await generateFacturaPDF(factura);
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Factura_${factura.numero_factura}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      // Enviar el PDF
+      res.send(pdfBuffer);
+
+    } catch (error) {
+      console.error('Error en generarPDF:', error);
+      return responseError(res, 'Error al generar PDF de la factura', 500);
+    }
+  }
+
   // Obtener estadísticas de facturas
-  static async getStats(req, res) {
+  static async obtenerEstadisticas(req, res) {
     try {
       const { fecha_inicio, fecha_fin } = req.query;
 
@@ -211,56 +309,8 @@ class FacturaController {
       return responseSuccess(res, 'Estadísticas obtenidas exitosamente', stats);
 
     } catch (error) {
-      console.error('Error en getStats facturas:', error);
+      console.error('Error en obtenerEstadisticas:', error);
       return responseError(res, 'Error al obtener estadísticas', 500);
-    }
-  }
-
-  // Obtener reporte de ventas
-  static async getReporteVentas(req, res) {
-    try {
-      const { 
-        fecha_inicio, 
-        fecha_fin, 
-        agrupacion = 'dia', // dia, semana, mes
-        incluir_anuladas = false 
-      } = req.query;
-
-      if (!fecha_inicio || !fecha_fin) {
-        return responseError(res, 'Fecha de inicio y fin son requeridas', 400);
-      }
-
-      const reporte = await FacturaRepository.getReporteVentas({
-        fecha_inicio,
-        fecha_fin,
-        agrupacion,
-        incluir_anuladas: incluir_anuladas === 'true'
-      });
-
-      return responseSuccess(res, 'Reporte de ventas obtenido exitosamente', reporte);
-
-    } catch (error) {
-      console.error('Error en getReporteVentas:', error);
-      return responseError(res, 'Error al obtener reporte de ventas', 500);
-    }
-  }
-
-  // Buscar facturas por número
-  static async buscarPorNumero(req, res) {
-    try {
-      const { numero } = req.query;
-
-      if (!numero || numero.trim().length < 3) {
-        return responseError(res, 'Debe proporcionar al menos 3 caracteres para buscar', 400);
-      }
-
-      const facturas = await FacturaRepository.buscarPorNumero(numero.trim());
-
-      return responseSuccess(res, 'Búsqueda completada exitosamente', facturas);
-
-    } catch (error) {
-      console.error('Error en buscarPorNumero facturas:', error);
-      return responseError(res, 'Error al buscar facturas', 500);
     }
   }
 }
