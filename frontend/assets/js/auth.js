@@ -1,53 +1,124 @@
-// frontend/assets/js/auth.js - VERSIÓN FINAL CORREGIDA
-// ARCHIVO COMPLETO CORREGIDO PARA EL LOGIN
+// frontend/assets/js/auth.js - VERSIÓN INDEPENDIENTE Y FUNCIONAL
+console.log('🚀 Iniciando auth.js independiente...');
 
-// Configuración de la API
+// ====================================================================
+// CONFIGURACIÓN
+// ====================================================================
 const API_BASE_URL = 'http://localhost:3000/api';
 
-// Clase para manejar servicios de autenticación
+// ====================================================================
+// UTILIDADES INDEPENDIENTES
+// ====================================================================
+class SimpleAlerts {
+    static show(message, type = 'info', duration = 5000) {
+        console.log(`[${type.toUpperCase()}] ${message}`);
+        
+        // Remover alerta anterior
+        const existingAlert = document.getElementById('simpleAlert');
+        if (existingAlert) existingAlert.remove();
+
+        const alertDiv = document.createElement('div');
+        alertDiv.id = 'simpleAlert';
+        alertDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            transform: translateX(100%);
+        `;
+
+        const colors = {
+            success: 'background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724;',
+            error: 'background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;',
+            warning: 'background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404;',
+            info: 'background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460;'
+        };
+
+        alertDiv.style.cssText += colors[type] || colors.info;
+        alertDiv.innerHTML = `
+            <div style="display: flex; align-items: center;">
+                <span style="flex: 1;">${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" 
+                        style="margin-left: 12px; background: none; border: none; font-size: 18px; cursor: pointer; padding: 0; color: inherit;">
+                    ×
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        // Animación de entrada
+        setTimeout(() => {
+            alertDiv.style.transform = 'translateX(0)';
+        }, 10);
+
+        // Auto-remove
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (alertDiv.parentNode) alertDiv.remove();
+                }, 300);
+            }
+        }, duration);
+    }
+}
+
+// ====================================================================
+// SERVICIO DE AUTENTICACIÓN
+// ====================================================================
 class AuthService {
     constructor() {
         this.baseURL = API_BASE_URL;
     }
 
-    // Realizar login - FUNCIÓN CORREGIDA
     async login(credentials) {
-        console.log('🔄 Intentando login con:', { username: credentials.username });
-        
+        console.log('🔄 AuthService.login iniciando...');
+        console.log('📧 Username:', credentials.username);
+
         try {
+            const requestBody = JSON.stringify(credentials);
+            console.log('📦 Request body:', requestBody);
+
             const response = await fetch(`${this.baseURL}/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                credentials: 'include', // Para cookies
-                body: JSON.stringify(credentials)
+                credentials: 'include',
+                body: requestBody
             });
 
-            console.log('📡 Respuesta del servidor - Status:', response.status);
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.log('❌ Error del servidor:', errorData);
-                throw new Error(errorData.message || 'Error en el login');
-            }
+            console.log('📡 Response status:', response.status);
+            console.log('📡 Response ok:', response.ok);
 
             const data = await response.json();
-            console.log('✅ Respuesta exitosa del login:', data);
-            
-            return data;
+            console.log('📄 Response data:', data);
+
+            if (response.ok && data.success) {
+                console.log('✅ Login exitoso en AuthService');
+                return data;
+            } else {
+                console.log('❌ Login fallido en AuthService');
+                throw new Error(data.message || data.error || 'Login fallido');
+            }
         } catch (error) {
             console.error('❌ Error en AuthService.login:', error);
             throw error;
         }
     }
 
-    // Cerrar sesión
     async logout() {
         try {
-            console.log('🔄 Cerrando sesión...');
-            
-            const response = await fetch(`${this.baseURL}/auth/logout`, {
+            await fetch(`${this.baseURL}/auth/logout`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -55,85 +126,64 @@ class AuthService {
                 },
                 credentials: 'include'
             });
-
-            // Limpiar storage independientemente de la respuesta
-            this.clearSession();
-            console.log('✅ Sesión cerrada');
-
-            return true;
         } catch (error) {
-            console.error('❌ Error en logout:', error);
-            this.clearSession(); // Limpiar de todos modos
-            return false;
+            console.error('Error en logout:', error);
+        } finally {
+            this.clearSession();
         }
     }
 
-    // Obtener token del localStorage
     getToken() {
         return localStorage.getItem('access_token');
     }
 
-    // Verificar si el usuario está autenticado
     isAuthenticated() {
         const token = this.getToken();
         const userData = localStorage.getItem('user_data');
         return !!(token && userData);
     }
 
-    // Obtener datos del usuario
     getUserData() {
         const userData = localStorage.getItem('user_data');
         return userData ? JSON.parse(userData) : null;
     }
 
-    // Limpiar sesión
     clearSession() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('user_data');
         localStorage.removeItem('session_expires');
-    }
-
-    // Obtener perfil actualizado
-    async getProfile() {
-        const response = await fetch(`${this.baseURL}/auth/profile`, {
-            headers: {
-                'Authorization': `Bearer ${this.getToken()}`,
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            throw new Error('Error al obtener perfil');
-        }
-
-        return await response.json();
+        console.log('🗑️ Sesión limpiada');
     }
 }
 
-// Instancia global del servicio
-const authService = new AuthService();
-
-// Clase para manejar la autenticación - CORREGIDA
+// ====================================================================
+// MANAGER DE AUTENTICACIÓN
+// ====================================================================
 class AuthManager {
     constructor() {
-        this.initializeLoginForm();
+        console.log('🚀 Inicializando AuthManager...');
+        this.authService = new AuthService();
+        this.init();
+    }
+
+    init() {
+        this.setupLoginForm();
         this.checkAuthenticationState();
     }
 
-    // Inicializar formulario de login
-    initializeLoginForm() {
+    setupLoginForm() {
         const loginForm = document.getElementById('loginForm');
         if (loginForm) {
-            console.log('📋 Inicializando formulario de login...');
+            console.log('📋 Formulario encontrado, configurando event listener...');
             loginForm.addEventListener('submit', this.handleLogin.bind(this));
+        } else {
+            console.log('⚠️ Formulario loginForm no encontrado');
         }
     }
 
-    // Manejar envío del formulario de login - COMPLETAMENTE CORREGIDO
     async handleLogin(event) {
         event.preventDefault();
-        console.log('🔄 Procesando envío de formulario...');
+        console.log('🎯 handleLogin ejecutándose...');
 
         const form = event.target;
         const formData = new FormData(form);
@@ -142,179 +192,186 @@ class AuthManager {
             password: formData.get('password')
         };
 
-        console.log('📝 Credenciales extraídas:', { username: credentials.username });
+        console.log('📝 Credenciales extraídas:');
+        console.log('- Username:', credentials.username);
+        console.log('- Password:', credentials.password ? '[PRESENTE]' : '[AUSENTE]');
 
-        // Validar campos
-        if (!credentials.username || !credentials.password) {
-            console.log('❌ Validación falló: campos vacíos');
-            utils.showAlert('Por favor, completa todos los campos', 'error');
+        // Validaciones
+        if (!credentials.username) {
+            SimpleAlerts.show('El usuario es requerido', 'error');
             return;
         }
 
-        // Cambiar estado del botón
-        this.setLoginButtonState(true);
+        if (!credentials.password) {
+            SimpleAlerts.show('La contraseña es requerida', 'error');
+            return;
+        }
+
+        // Mostrar estado de carga
+        this.setLoadingState(true);
+        SimpleAlerts.show('Iniciando sesión...', 'info', 2000);
 
         try {
-            console.log('🔄 Enviando petición de login...');
-            const response = await authService.login(credentials);
+            console.log('🚀 Enviando petición de login...');
+            const response = await this.authService.login(credentials);
+            console.log('✅ Respuesta recibida:', response);
 
-            if (response.success) {
-                console.log('✅ Login exitoso!');
-                utils.showAlert('¡Inicio de sesión exitoso!', 'success');
+            if (response.success && response.data) {
+                console.log('🎉 Login exitoso confirmado');
                 
-                // Verificar estructura de la respuesta
-                const userData = response.data?.user;
-                const token = response.data?.token;
-                
-                if (!userData || !token) {
-                    console.log('❌ Respuesta incompleta:', response.data);
-                    throw new Error('Respuesta incompleta del servidor');
+                const { user, token } = response.data;
+                console.log('👤 User data:', user);
+                console.log('🔑 Token:', token ? 'Presente' : 'Ausente');
+
+                if (!user || !token) {
+                    throw new Error('Datos de respuesta incompletos');
                 }
-                
-                // Guardar sesión
-                this.saveUserSession(response.data);
 
-                // Redirección después de breve delay
+                // Guardar sesión
+                this.saveUserSession(user, token);
+                
+                // Mostrar éxito
+                SimpleAlerts.show('¡Login exitoso! Redirigiendo...', 'success');
+
+                // Redirección
+                console.log('🔄 Programando redirección...');
                 setTimeout(() => {
-                    console.log('🔄 Redirigiendo al dashboard...');
-                    // Usar ruta relativa desde login.html
+                    console.log('🔄 Ejecutando redirección a dashboard...');
                     window.location.href = 'dashboard.html';
                 }, 1500);
+
             } else {
-                throw new Error(response.message || 'Error desconocido');
+                throw new Error(response.message || 'Respuesta inesperada del servidor');
             }
+
         } catch (error) {
-            console.error('❌ Error completo en login:', error);
+            console.error('❌ Error en handleLogin:', error);
             
-            let errorMessage = 'Error al iniciar sesión. Verifica tus credenciales.';
+            let errorMessage = 'Error al iniciar sesión';
             
             if (error.message.includes('Credenciales inválidas')) {
                 errorMessage = 'Usuario o contraseña incorrectos';
-            } else if (error.message.includes('Cuenta desactivada')) {
-                errorMessage = 'Tu cuenta está desactivada. Contacta al administrador.';
-            } else if (error.message.includes('Cuenta bloqueada')) {
-                errorMessage = 'Tu cuenta está bloqueada por múltiples intentos fallidos.';
             } else if (error.message.includes('fetch')) {
-                errorMessage = 'No se puede conectar al servidor. Verifica que el backend esté funcionando.';
+                errorMessage = 'No se puede conectar al servidor';
+            } else if (error.message) {
+                errorMessage = error.message;
             }
             
-            utils.showAlert(errorMessage, 'error');
+            SimpleAlerts.show(errorMessage, 'error');
         } finally {
-            this.setLoginButtonState(false);
+            this.setLoadingState(false);
         }
     }
 
-    // Guardar sesión del usuario
-    saveUserSession(data) {
+    saveUserSession(user, token) {
         try {
-            console.log('💾 Guardando sesión:', data);
-            
-            // Guardar token
-            if (data.token) {
-                localStorage.setItem('access_token', data.token);
-                console.log('✅ Token guardado');
-            }
+            console.log('💾 Guardando sesión...');
+            console.log('💾 User:', user);
+            console.log('💾 Token presente:', !!token);
 
-            // Normalizar y guardar datos de usuario
+            // Guardar token
+            localStorage.setItem('access_token', token);
+
+            // Normalizar datos de usuario
             const normalizedUser = {
-                id_usuario: data.user.id_usuario || data.user.id,
-                username: data.user.username,
-                perfil: data.user.perfil_usuario || data.user.perfil,
-                perfil_usuario: data.user.perfil_usuario || data.user.perfil,
-                nombre_completo: data.user.nombre_completo || data.user.username,
-                email: data.user.email,
-                sucursal: data.user.sucursal || 'Sin asignar',
-                id_empleado: data.user.id_empleado,
-                ultimo_acceso: data.user.ultimo_acceso
+                id_usuario: user.id_usuario || user.id,
+                username: user.username,
+                perfil_usuario: user.perfil_usuario || user.perfil || user.rol,
+                nombre_completo: user.nombre_completo || user.nombre || user.username,
+                email: user.email
             };
 
             localStorage.setItem('user_data', JSON.stringify(normalizedUser));
-            console.log('✅ Datos de usuario guardados:', normalizedUser);
 
-            // Calcular expiración (24 horas)
+            // Expiración
             const expirationTime = new Date().getTime() + (24 * 60 * 60 * 1000);
             localStorage.setItem('session_expires', expirationTime.toString());
 
+            console.log('✅ Sesión guardada:', normalizedUser);
+
         } catch (error) {
-            console.error('❌ Error al guardar sesión:', error);
+            console.error('❌ Error guardando sesión:', error);
         }
     }
 
-    // Cambiar estado del botón de login
-    setLoginButtonState(loading) {
+    setLoadingState(loading) {
         const button = document.querySelector('#loginForm button[type="submit"]');
-        
         if (button) {
             button.disabled = loading;
-            
-            if (loading) {
-                button.innerHTML = `
-                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Iniciando sesión...
-                `;
-            } else {
-                button.innerHTML = 'Iniciar Sesión';
-            }
+            button.innerHTML = loading 
+                ? '⏳ Iniciando sesión...' 
+                : 'Iniciar Sesión';
         }
     }
 
-    // Verificar estado de autenticación
     checkAuthenticationState() {
         console.log('🔍 Verificando estado de autenticación...');
         
-        if (authService.isAuthenticated()) {
-            const currentPath = window.location.pathname;
-            console.log('✅ Usuario ya autenticado. Ruta actual:', currentPath);
-            
-            // Si está en login y ya autenticado, redirigir al dashboard
+        const currentPath = window.location.pathname;
+        console.log('📍 Ruta actual:', currentPath);
+
+        if (this.authService.isAuthenticated()) {
+            console.log('✅ Usuario autenticado');
             if (currentPath.includes('login.html')) {
-                console.log('🔄 Redirigiendo desde login al dashboard...');
+                console.log('🔄 Redirigiendo de login a dashboard');
                 window.location.href = 'dashboard.html';
             }
         } else {
-            const currentPath = window.location.pathname;
-            console.log('❌ Usuario no autenticado. Ruta actual:', currentPath);
+            console.log('❌ Usuario no autenticado');
+            const isLoginOrIndex = currentPath.includes('login.html') || 
+                                 currentPath.includes('index.html') || 
+                                 currentPath === '/';
             
-            // Si no está en login y no autenticado, redirigir al login
-            if (!currentPath.includes('login.html') && !currentPath.includes('index.html')) {
-                console.log('🔄 Redirigiendo a login...');
+            if (!isLoginOrIndex) {
+                console.log('🔄 Redirigiendo a login');
                 window.location.href = 'login.html';
             }
         }
     }
 
-    // Cerrar sesión
     async logout() {
         try {
-            console.log('🔄 Cerrando sesión...');
-            await authService.logout();
-            
-            utils.showAlert('Sesión cerrada exitosamente', 'success');
-            
-            // Redirigir al login después de un breve delay
-            setTimeout(() => {
-                window.location.href = 'login.html';
-            }, 1000);
+            await this.authService.logout();
+            SimpleAlerts.show('Sesión cerrada exitosamente', 'success');
+            setTimeout(() => window.location.href = 'login.html', 1000);
         } catch (error) {
-            console.error('❌ Error en logout:', error);
-            // Forzar limpieza local y redirección
-            authService.clearSession();
+            console.error('Error en logout:', error);
+            this.authService.clearSession();
             window.location.href = 'login.html';
         }
     }
 }
 
-// Inicialización cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 DOM cargado, inicializando AuthManager...');
+// ====================================================================
+// INICIALIZACIÓN
+// ====================================================================
+let authManager = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🌟 DOM cargado - Iniciando sistema de autenticación independiente...');
+    console.log('🔍 Buscando formulario loginForm...');
     
-    // Crear instancia del manejador de autenticación
-    window.authManager = new AuthManager();
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        console.log('✅ Formulario encontrado');
+    } else {
+        console.log('❌ Formulario NO encontrado');
+    }
+    
+    authManager = new AuthManager();
+    
+    // Hacer disponible globalmente
+    window.authManager = authManager;
+    window.authService = authManager.authService;
 });
 
-// Exportar para uso global
-window.authService = authService;
-window.AuthManager = AuthManager;
+// ====================================================================
+// FUNCIONES GLOBALES PARA HTML
+// ====================================================================
+function logout() {
+    if (authManager) {
+        authManager.logout();
+    }
+}
+
+console.log('✅ auth.js independiente cargado completamente');
